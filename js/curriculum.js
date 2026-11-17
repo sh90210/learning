@@ -52,6 +52,23 @@ export const UNITS = [
 
 for (const u of UNITS) for (const it of u.items) { it.id = `${it.kind}:${it.text}`; it.unit = u.id; }
 
+// Each planet is split into short stages of up to 5 items (for syllables that
+// is one consonant row, e.g. 가 거 고 구 기).
+export const STAGE_SIZE = 5;
+for (const u of UNITS) {
+  u.stages = [];
+  for (let i = 0; i < u.items.length; i += STAGE_SIZE) {
+    const items = u.items.slice(i, i + STAGE_SIZE);
+    const st = { id: `${u.id}-${u.stages.length + 1}`, unit: u.id, n: u.stages.length + 1, items };
+    items.forEach((it) => { it.stage = st.id; });
+    u.stages.push(st);
+  }
+}
+export const STAGE_BY_ID = Object.fromEntries(UNITS.flatMap((u) => u.stages.map((s) => [s.id, s])));
+
 export const ALL_ITEMS = UNITS.flatMap((u) => u.items);
 export const ITEM_BY_ID = Object.fromEntries(ALL_ITEMS.map((i) => [i.id, i]));
-export const CURRICULUM_VERSION = 1;
+export const CURRICULUM_VERSION = 2;
+
+// Words that have a picture (sticker art) for the picture → word game.
+export const PICTURE = { '망고': 'mango', '사과': 'apple', '바나나': 'banana', '포도': 'grape', '공룡': 'trex', '엄마': 'mom', '아빠': 'dad', '태오 형': 'theo', '판교 할머니': 'grandmaP', '포항 할머니': 'grandmaH' };

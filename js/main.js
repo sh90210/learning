@@ -1,9 +1,9 @@
 import { app, html, mount, on, $, $$, talk, coinPill, burst, fitStage, drawSky, esc, wait } from './ui.js';
 import { say, setVoice, sfx } from './audio.js';
 import { pick } from './lines.js';
-import { mango, ICON, STICKERS, STICKER_SETS, STICKER_BY_ID, SHOP, shopIcon } from './art.js';
-import { UNITS } from './curriculum.js';
-import { loadProfile, saveProfile, currentUnit, unitProgress, buildLesson } from './engine.js';
+import { mango, ICON, STICKERS, STICKER_SETS, STICKER_BY_ID, SHOP, SHOP_BY_ID, SLOT_NAMES, shopIcon } from './art.js';
+import { UNITS, STAGE_BY_ID } from './curriculum.js';
+import { loadProfile, saveProfile, currentUnit, currentStage, unitProgress, stageProgress, buildLesson } from './engine.js';
 import { store } from './store.js';
 import { runLesson } from './lesson.js';
 import { grownups } from './grownups.js';
@@ -63,7 +63,20 @@ function holdToOpen(btn, fn) {
 const POS = [[150, 430], [330, 300], [500, 420], [660, 280], [820, 400], [980, 270], [1120, 390], [960, 520], [760, 560]];
 
 function starsFor(share) { return share >= 0.8 ? 3 : share >= 0.5 ? 2 : share >= 0.2 ? 1 : 0; }
+const starRow = (n) => [0, 1, 2].map((k) => ICON.star(k < n ? '#FFD86B' : 'rgba(255,255,255,0.18)')).join('');
 
+// tap 망고 anywhere and he dances
+function bindDance(el) {
+  on(el, '.mango-btn', (b) => {
+    const svg = b.querySelector('.mango');
+    svg.classList.remove('dancing'); void svg.getBoundingClientRect(); svg.classList.add('dancing');
+    sfx('star');
+    say(pick('dance'));
+    setTimeout(() => svg.classList.remove('dancing'), 2600);
+  });
+}
+
+// ---- 태이's map: every planet is open; the recommended one glows -------------------
 screens.map = async ({ greet = false } = {}) => {
   const p = app.profile = await loadProfile('tay');
   const cur = currentUnit(p);
@@ -71,14 +84,13 @@ screens.map = async ({ greet = false } = {}) => {
   let path = '';
   for (let i = 1; i < POS.length; i++) path += `<line x1="${POS[i - 1][0]}" y1="${POS[i - 1][1] - 100}" x2="${POS[i][0]}" y2="${POS[i][1] - 100}" stroke="rgba(255,255,255,0.3)" stroke-width="4" stroke-dasharray="4 14" stroke-linecap="round"/>`;
   const planets = UNITS.map((u, i) => {
-    const locked = !p.unlocked.includes(u.id);
     const prog = unitProgress(p, u);
     const size = u.id === cur.id ? 132 : 104;
-    const st = starsFor(prog.share);
     const fs = u.icon.length > 1 ? 34 : 54;
-    return `<button class="planet-btn ${locked ? 'locked' : ''} ${u.id === cur.id ? 'current' : ''}" data-unit="${u.id}" style="left:${POS[i][0]}px;top:${POS[i][1] - 100}px" aria-label="${esc(u.name)}">
-      <span class="orb" style="width:${size}px;height:${size}px;background:${u.color};--glow:${u.color}99;font-size:${fs}px">${locked ? `<span style="width:40px;height:40px">${ICON.lock('#6B75A8')}</span>` : esc(u.icon)}</span>
-      <span class="stars">${[0, 1, 2].map((k) => ICON.star(k < st ? '#FFD86B' : 'rgba(255,255,255,0.18)')).join('')}</span>
+    const visited = p.unlocked.includes(u.id);
+    return `<button class="planet-btn ${u.id === cur.id ? 'current' : ''} ${visited ? '' : 'new'}" data-unit="${u.id}" style="left:${POS[i][0]}px;top:${POS[i][1] - 100}px" aria-label="${esc(u.name)}">
+      <span class="orb" style="width:${size}px;height:${size}px;background:${u.color};--glow:${u.color}99;font-size:${fs}px">${esc(u.icon)}</span>
+      <span class="stars">${starRow(starsFor(prog.share))}</span>
     </button>`;
   }).join('');
   const el = mount(html(`<section class="screen">
@@ -92,7 +104,7 @@ screens.map = async ({ greet = false } = {}) => {
       ${planets}
     </div>
     <div class="row">
-      <div class="row" style="gap:6px">${mango({ equipped: p.equipped, size: 150 })}
+      <div class="row" style="gap:6px"><button class="mango-btn" aria-label="망고 춤">${mango({ equipped: p.equipped, size: 160 })}</button>
         <button class="speak small" aria-label="다시 듣기">${ICON.speaker()}</button></div>
       <div class="grow"></div>
       <div class="dock">
@@ -108,41 +120,100 @@ screens.map = async ({ greet = false } = {}) => {
   on(el, '.speak', () => talk(speak, pick('map_go')));
   on(el, '.back', () => app.go('entry'));
   on(el, '[data-go]', (b) => app.go(b.dataset.go));
-  on(el, '.go', async () => {
+  bindDance(el);
+  on(el, '.go', () => { sfx('pop'); runLesson(saved || buildLesson(p, cur.id)); });
+  on(el, '.planet-btn', (b) => { sfx('pop'); say(UNITS.find((u) => u.id === b.dataset.unit).name); app.go('planet', b.dataset.unit); });
+};
+
+// ---- one planet: its short stages, all open, with arrows to the next/previous planet --
+screens.planet = async (unitId) => {
+  const p = app.profile || (app.profile = await loadProfile('tay'));
+  const i = UNITS.findIndex((u) => u.id === unitId);
+  const u = UNITS[i];
+  const rec = currentStage(p, u);
+  const saved = await store.get('lesson:tay');
+  const n = u.stages.length;
+  const stones = u.stages.map((st, k) => {
+    const pr = stageProgress(p, st);
+    const x = n === 1 ? 50 : 12 + (k * 76) / (n - 1);
+    const y = k % 2 ? 330 : 200;
+    const label = st.items.map((it) => it.text).join(' ');
+    return `<button class="stone ${st.id === rec.id ? 'current' : ''}" data-stage="${st.id}" style="left:${x}%;top:${y}px;--c:${u.color}" aria-label="${k + 1}단계">
+      <span class="num">${k + 1}</span>
+      <span class="peek">${esc(label)}</span>
+      <span class="stars">${starRow(starsFor(pr.share))}</span></button>`;
+  }).join('');
+  const el = mount(html(`<section class="screen">
+    <div class="row">
+      <button class="round back" aria-label="지도로">${ICON.back()}</button>
+      <span class="orb-mini" style="background:${u.color}">${esc(u.icon)}</span>
+      <h1 class="title" style="font-size:52px">${esc(u.name)}</h1>
+      <button class="speak small" aria-label="다시 듣기">${ICON.speaker()}</button>
+      <div class="grow"></div>${coinPill(p.coins)}
+    </div>
+    <div class="row grow" style="gap:18px">
+      <button class="round nav prev" ${i === 0 ? 'disabled' : ''} aria-label="이전 행성">${ICON.prev()}</button>
+      <div class="stones grow">${stones}</div>
+      <button class="round nav next" ${i === UNITS.length - 1 ? 'disabled' : ''} aria-label="다음 행성">${ICON.next()}</button>
+    </div>
+  </section>`));
+  const speak = $(el, '.speak');
+  talk(speak, pick('planet'));
+  on(el, '.speak', () => talk(speak, pick('planet')));
+  on(el, '.back', () => app.go('map'));
+  on(el, '.prev', () => i > 0 && app.go('planet', UNITS[i - 1].id));
+  on(el, '.next', () => i < UNITS.length - 1 && app.go('planet', UNITS[i + 1].id));
+  on(el, '.stone', async (b) => {
     sfx('pop');
-    const lesson = saved || buildLesson(p, cur.id);
-    runLesson(lesson);
-  });
-  on(el, '.planet-btn', (b) => {
-    const u = UNITS.find((x) => x.id === b.dataset.unit);
-    if (!p.unlocked.includes(u.id)) { sfx('bad'); talk(speak, pick('planet_locked')); return; }
-    sfx('pop');
-    runLesson(buildLesson(p, u.id));
+    if (saved) await store.del('lesson:tay');
+    runLesson(buildLesson(p, u.id, b.dataset.stage));
   });
 };
 
-// ---- reward ------------------------------------------------------------------
-screens.reward = async ({ accuracy, coins, sticker, unlocked }) => {
+// ---- reward: stars, coins, sticker, a treasure chest, and 망고 dancing ----------------
+screens.reward = async ({ accuracy, coins, sticker, unlocked, stage, bestCombo = 0 }) => {
   const p = app.profile;
   const stars = accuracy >= 0.8 ? 3 : accuracy >= 0.5 ? 2 : 1;
   const st = sticker ? STICKER_BY_ID[sticker] : null;
-  const el = mount(html(`<section class="screen reward" style="gap:22px">
-    <div class="stars-row">${[0, 1, 2].map((k) => `<span class="${k === 1 ? 'mid' : ''}">${ICON.star(k < stars ? '#FFD86B' : 'rgba(255,255,255,0.2)')}</span>`).join('')}</div>
-    <h1 class="title" style="font-size:72px">잘했어, 태이야!</h1>
-    <div class="coin-burst">${ICON.star()} +${coins}</div>
+  const el = mount(html(`<section class="screen reward" style="gap:16px">
+    <div class="row" style="gap:40px;align-items:center">
+      <button class="mango-btn" aria-label="망고 춤">${mango({ equipped: p.equipped, size: 230, dancing: true })}</button>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:12px">
+        <div class="stars-row">${[0, 1, 2].map((k) => `<span class="${k === 1 ? 'mid' : ''}">${ICON.star(k < stars ? '#FFD86B' : 'rgba(255,255,255,0.2)')}</span>`).join('')}</div>
+        <h1 class="title" style="font-size:66px">잘했어, 태이야!</h1>
+        <div class="row" style="gap:24px"><div class="coin-burst">${ICON.star()} +<b class="earned">${coins}</b></div>
+          ${bestCombo >= 3 ? `<div class="pill combo" style="font-size:34px">${ICON.fire()} ${bestCombo}</div>` : ''}</div>
+      </div>
+      <button class="chest" aria-label="보물 상자">${ICON.chest()}</button>
+    </div>
     ${st ? `<button class="panel sticker-card" aria-label="${esc(st.word)}"><span class="pic">${st.svg()}</span><span class="w">${esc(st.word)}</span></button>` : ''}
-    ${unlocked ? `<div class="pill" style="font-size:34px">${ICON.rocket()} 새 행성: ${esc(UNITS.find((u) => u.id === unlocked).name)}</div>` : ''}
     <div class="row" style="gap:24px">
       ${st ? `<button class="big-btn" data-go="stickers">${ICON.book('#151B3D')} 스티커 책</button>` : ''}
-      <button class="big-btn" data-go="map" style="background:#5ED3C7">${ICON.rocket()} 지도로</button>
+      <button class="big-btn again" style="background:#FF9AC4">${ICON.rocket()} 한 번 더</button>
+      <button class="big-btn" data-go="map" style="background:#5ED3C7">${ICON.back()} 지도로</button>
     </div>
   </section>`));
-  const s = el.querySelector('.stars-row');
-  s.querySelectorAll('span').forEach((x) => { x.querySelector('svg').classList.toggle('mid', x.classList.contains('mid')); });
+  el.querySelectorAll('.stars-row span').forEach((x) => x.querySelector('svg').classList.toggle('mid', x.classList.contains('mid')));
   burst(el, 16);
-  await talk(null, pick('lesson_done'), st ? pick('new_sticker') : null, st ? st.word : null, unlocked ? pick('unit_unlock') : null);
+  bindDance(el);
+  let opened = false;
+  on(el, '.chest', async (b) => {
+    if (opened) return;
+    opened = true;
+    const bonus = 10 + Math.floor(Math.random() * 3) * 10;
+    p.coins += bonus;
+    await saveProfile(p);
+    await store.addEvent({ kid: 'tay', type: 'chest', coins: bonus });
+    b.innerHTML = ICON.chest(true);
+    b.classList.add('opened');
+    $(el, '.earned').textContent = coins + bonus;
+    sfx('coin'); burst(el, 12);
+    say(pick('chest_open'), `${bonus} 코인이야.`);
+  });
   on(el, '.sticker-card', () => say(st.word));
   on(el, '[data-go]', (b) => app.go(b.dataset.go));
+  on(el, '.again', () => runLesson(buildLesson(p, stage ? STAGE_BY_ID[stage].unit : undefined, stage)));
+  await talk(null, pick('lesson_done'), bestCombo >= 3 ? pick('best_combo') : null, st ? pick('new_sticker') : null, st ? st.word : null, unlocked ? pick('unit_unlock') : null, pick('chest'));
 };
 
 // ---- sticker book --------------------------------------------------------------
@@ -173,47 +244,48 @@ screens.stickers = async (set = STICKER_SETS[0]) => {
   on(el, '.scell[data-word]', (b) => { sfx('pop'); say(b.dataset.word); });
 };
 
-// ---- 망고 옷 가게 ----------------------------------------------------------------
-screens.shop = async (selected = null) => {
+// ---- 망고 옷 가게: tabs by body part, preview on 망고, buy, wear/take off ---------------
+const SHOP_TABS = ['head', 'face', 'body', 'legs', 'feet', 'hands', 'back', 'dance', 'effect', 'pet'];
+screens.shop = async ({ tab = 'head', selected = null } = {}) => {
   const p = app.profile || (app.profile = await loadProfile('tay'));
-  const sel = selected ? SHOP.find((s) => s.id === selected) : null;
+  const sel = selected ? SHOP_BY_ID[selected] : null;
   const preview = sel ? { ...p.equipped, [sel.slot]: sel.id } : p.equipped;
+  const wearing = sel && p.equipped[sel.slot] === sel.id;
+  const items = SHOP.filter((s) => s.slot === tab);
   const el = mount(html(`<section class="screen">
     <div class="row">
       <button class="round back" aria-label="지도로">${ICON.back()}</button>
-      <h1 class="title" style="font-size:56px">망고 옷 가게</h1>
+      <h1 class="title" style="font-size:52px">망고 옷 가게</h1>
       <button class="speak small" aria-label="다시 듣기">${ICON.speaker()}</button>
       <div class="grow"></div>${coinPill(p.coins)}
     </div>
+    <div class="tabs shop-tabs">${SHOP_TABS.map((t) => `<button class="tab ${t === tab ? 'on' : ''}" data-tab="${t}">${SLOT_NAMES[t]}</button>`).join('')}</div>
     <div class="shop">
-      <div class="mirror panel">${mango({ equipped: preview, size: 320, mood: sel && !p.owned.includes(sel.id) ? 'wow' : 'happy' })}
+      <div class="mirror panel"><button class="mango-btn" aria-label="망고 춤">${mango({ equipped: preview, size: 300, mood: sel && !p.owned.includes(sel.id) ? 'wow' : 'happy', dancing: !!(sel && sel.slot === 'dance') })}</button>
         ${sel && !p.owned.includes(sel.id) ? `<button class="buy">${ICON.star('#151B3D')} ${sel.price} 사기</button>` : ''}
-        ${sel && p.owned.includes(sel.id) && Object.values(p.equipped).includes(sel.id) ? `<button class="buy off" style="background:#C9D1F2">벗기</button>` : ''}
+        ${sel && p.owned.includes(sel.id) && wearing && sel.id !== 'helmet' ? `<button class="buy off" style="background:#C9D1F2">벗기</button>` : ''}
+        ${sel && p.owned.includes(sel.id) && !wearing ? `<button class="buy wear" style="background:#5ED3C7">입기</button>` : ''}
       </div>
-      <div class="igrid">${SHOP.map((s) => `<button class="item ${Object.values(p.equipped).includes(s.id) ? 'on' : ''}" data-id="${s.id}" aria-label="${esc(s.name)}">
+      <div class="igrid">${items.map((s) => `<button class="item ${p.equipped[s.slot] === s.id ? 'on' : ''} ${sel && sel.id === s.id ? 'sel' : ''}" data-id="${s.id}" aria-label="${esc(s.name)}">
         ${shopIcon(s.id)}
         ${p.owned.includes(s.id) ? `<span class="owned">${ICON.check('#4CC76B').replace('<svg', '<svg width="30" height="30"')}</span>` : `<span class="price">${ICON.star()} ${s.price}</span>`}
       </button>`).join('')}</div>
     </div>
   </section>`));
   const speak = $(el, '.speak');
-  if (!selected) talk(speak, pick('shop'));
+  if (!selected && tab === 'head') talk(speak, pick('shop'));
   on(el, '.speak', () => talk(speak, pick('shop')));
   on(el, '.back', () => app.go('map'));
-  on(el, '.item', async (b) => {
+  bindDance(el);
+  on(el, '.tab', (b) => { sfx('pop'); app.go('shop', { tab: b.dataset.tab }); say(SLOT_NAMES[b.dataset.tab]); });
+  on(el, '.item', (b) => {
     sfx('pop');
-    const it = SHOP.find((s) => s.id === b.dataset.id);
-    if (p.owned.includes(it.id)) {
-      p.equipped[it.slot] = it.id;
-      await saveProfile(p);
-      app.go('shop', it.id);
-      say(pick('shop_wear'));
-    } else {
-      app.go('shop', it.id);
-      say(it.name, `${it.price} 코인이야.`);
-    }
+    const it = SHOP_BY_ID[b.dataset.id];
+    app.go('shop', { tab, selected: it.id });
+    if (p.owned.includes(it.id)) say(it.name);
+    else say(it.name, `${it.price} 코인이야.`);
   });
-  on(el, '.buy:not(.off)', async () => {
+  on(el, '.buy:not(.off):not(.wear)', async () => {
     if (p.coins < sel.price) { sfx('bad'); talk(speak, pick('shop_need')); return; }
     p.coins -= sel.price;
     p.owned.push(sel.id);
@@ -221,15 +293,12 @@ screens.shop = async (selected = null) => {
     await saveProfile(p);
     await store.addEvent({ kid: 'tay', type: 'buy', item: sel.id, price: sel.price });
     sfx('coin');
-    app.go('shop', sel.id);
+    app.go('shop', { tab, selected: sel.id });
     burst(document.getElementById('app'), 14);
     say(pick('shop_bought'));
   });
-  on(el, '.buy.off', async () => {
-    delete p.equipped[sel.slot];
-    await saveProfile(p);
-    app.go('shop', sel.id);
-  });
+  on(el, '.buy.wear', async () => { p.equipped[sel.slot] = sel.id; await saveProfile(p); app.go('shop', { tab, selected: sel.id }); say(pick('shop_wear')); });
+  on(el, '.buy.off', async () => { delete p.equipped[sel.slot]; await saveProfile(p); app.go('shop', { tab, selected: sel.id }); });
 };
 
 // ---- boot --------------------------------------------------------------------

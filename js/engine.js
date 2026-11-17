@@ -1,13 +1,14 @@
 // The adaptive part: mastery scores, spaced review, mix-up drills, and the
 // lesson builder. Everything here is plain data so a progress report can be
 // exported and the rules tuned later.
-import { UNITS, ITEM_BY_ID } from './curriculum.js';
+import { UNITS, ITEM_BY_ID, STAGE_BY_ID, PICTURE } from './curriculum.js';
 import { syllableSimilarity, decompose } from './hangul.js';
 import { store } from './store.js';
 
 export const RULES = {
-  lessonLength: 8,
-  newPerLesson: 3,
+  lessonLength: 6,
+  newPerLesson: 2,
+  maxSameActivity: 2,
   masteredScore: 70,
   unitPassShare: 0.8,
   confusionDrillAt: 3,
@@ -25,7 +26,11 @@ export function newProfile(kid) {
 }
 
 export async function loadProfile(kid) {
-  return (await store.get(`profile:${kid}`)) || newProfile(kid);
+  const p = (await store.get(`profile:${kid}`)) || newProfile(kid);
+  // renamed shop item from the first version
+  p.owned = p.owned.map((id) => (id === 'dino' ? 'dinohat' : id === 'antenna' ? 'antenna' : id));
+  for (const k of Object.keys(p.equipped)) if (p.equipped[k] === 'dino') p.equipped[k] = 'dinohat';
+  return p;
 }
 export function saveProfile(p) { return store.set(`profile:${p.kid}`, p); }
 
@@ -37,6 +42,17 @@ export function unitProgress(p, unit) {
   const n = unit.items.length;
   const done = unit.items.filter((it) => (p.mastery[it.id]?.score || 0) >= RULES.masteredScore).length;
   return { done, n, share: n ? done / n : 0 };
+}
+
+export function stageProgress(p, stage) {
+  const n = stage.items.length;
+  const done = stage.items.filter((it) => (p.mastery[it.id]?.score || 0) >= RULES.masteredScore).length;
+  const seen = stage.items.filter((it) => (p.mastery[it.id]?.seen || 0) > 0).length;
+  return { done, n, seen, share: n ? done / n : 0 };
+}
+
+export function currentStage(p, unit = currentUnit(p)) {
+  return unit.stages.find((st) => stageProgress(p, st).share < RULES.unitPassShare) || unit.stages[0];
 }
 
 export function currentUnit(p) {
@@ -61,16 +77,18 @@ export function checkUnlocks(p) {
 }
 
 // ---- choosing activities --------------------------------------------------
+export const GAMES = ['stars', 'balloon', 'memory'];
 function activitiesFor(item, score) {
   if (item.kind === 'syl') {
-    if (score < 25) return ['listen', 'build', 'sight'];
-    if (score < 55) return ['listen', 'build', 'sight', 'trace'];
-    return ['read', 'trace', 'listen', 'build'];
+    if (score < 25) return ['listen', 'stars', 'memory', 'build'];
+    if (score < 55) return ['build', 'stars', 'balloon', 'sight', 'trace', 'listen'];
+    return ['read', 'trace', 'balloon', 'build', 'stars'];
   }
   if (item.kind === 'word') {
-    if (score < 30) return ['listen', 'sight'];
-    if (score < 60) return ['listen', 'build', 'sight'];
-    return ['read', 'build', 'listen'];
+    const pic = PICTURE[item.text] ? ['picture'] : [];
+    if (score < 30) return [...pic, 'listen', 'memory', 'stars'];
+    if (score < 60) return [...pic, 'fill', 'build', 'balloon', 'listen'];
+    return ['read', 'fill', 'build', ...pic];
   }
   return score < 40 ? ['listen', 'build'] : ['read', 'build', 'listen'];
 }
@@ -126,75 +144,85 @@ export function makeStep(p, item, activity, struggling = false) {
   const s = m(p, item.id).score;
   const n = choiceCount(s, struggling);
   const step = { itemId: item.id, activity };
-  if (activity === 'listen' || activity === 'sight') {
-    step.choices = shuffle([item.id, ...distractors(p, item, n - 1).map((d) => d.id)]);
+  if (['listen', 'sight', 'stars', 'picture'].includes(activity)) {
+    const k = activity === 'stars' ? Math.max(3, n) : n;
+    step.choices = shuffle([item.id, ...distractors(p, item, k - 1).map((d) => d.id)]);
+  } else if (activity === 'balloon') {
+    // 2–3 balloons carry the target, the rest are look-alikes
+    const copies = struggling ? 2 : 3;
+    const others = distractors(p, item, 3).map((d) => d.id);
+    step.choices = shuffle([...Array(copies).fill(item.id), ...others]);
+  } else if (activity === 'memory') {
+    step.pairs = [item.id, ...distractors(p, item, struggling ? 1 : 2).map((d) => d.id)];
+    step.cards = shuffle([...step.pairs, ...step.pairs]);
+  } else if (activity === 'fill') {
+    const syl = [...item.text.replace(/ /g, '')];
+    const at = Math.floor(Math.random() * syl.length);
+    const pool = [...new Set(ALL_SYL.filter((t) => t !== syl[at]))];
+    const near = pool.map((t) => [t, syllableSimilarity(syl[at], t)]).sort((x, y) => y[1] - x[1]).slice(0, 6).map(([t]) => t);
+    step.fill = { at, answer: syl[at], options: shuffle([syl[at], ...shuffle(near).slice(0, Math.max(2, n - 1))]) };
   } else if (activity === 'build') {
     step.build = buildSpec(p, item, Math.max(3, n));
-  } else if (activity === 'drill') {
-    step.activity = 'listen';
-    step.choices = shuffle([item.id, step.partner]);
   }
   return step;
 }
+const ALL_SYL = [...new Set(UNITS.flatMap((u) => u.items).flatMap((it) => [...it.text.replace(/ /g, '')]))];
 
 // ---- the lesson builder ----------------------------------------------------
-export function buildLesson(p, unitId) {
+// A lesson is short (6 steps): new blocks from the chosen stage, one review
+// from earlier, a mix-up drill when one is due, practice, and an easy finish.
+export function buildLesson(p, unitId, stageId) {
   const now = Date.now();
   const unit = unitId ? UNITS.find((u) => u.id === unitId) : currentUnit(p);
+  const stage = (stageId && STAGE_BY_ID[stageId]) || currentStage(p, unit);
+  if (!p.unlocked.includes(unit.id)) p.unlocked.push(unit.id);
+  const LEN = RULES.lessonLength;
   const plan = [];
   const used = new Map();
   const add = (item, act, extra = {}) => {
-    if (!item) return;
+    if (!item || plan.length >= LEN) return;
     plan.push({ itemId: item.id, activity: act, ...extra });
     used.set(item.id, (used.get(item.id) || 0) + 1);
   };
+  const pool = stage.items;
+  const fresh = pool.filter((it) => !p.mastery[it.id] || p.mastery[it.id].seen === 0).slice(0, RULES.newPerLesson);
+  const known = pool.filter((it) => p.mastery[it.id]?.seen > 0);
+  const seenAll = Object.keys(p.mastery).filter((id) => ITEM_BY_ID[id] && p.mastery[id].seen > 0);
 
-  const unseen = unit.items.filter((it) => !p.mastery[it.id] || p.mastery[it.id].seen === 0);
-  const fresh = unseen.slice(0, RULES.newPerLesson);
-  const known = unit.items.filter((it) => p.mastery[it.id]?.seen > 0);
-
-  // 1) mix-up drill if one is ready
-  const unlockedItems = new Set(UNITS.filter((u) => p.unlocked.includes(u.id)).flatMap((u) => u.items.map((i) => i.id)));
   let drill = null;
   for (const [target, chosen] of Object.entries(p.confusions)) {
-    if (!unlockedItems.has(target)) continue;
-    for (const [other, c] of Object.entries(chosen)) if (c >= RULES.confusionDrillAt && (!drill || c > drill.c)) drill = { target, other, c };
+    if (!ITEM_BY_ID[target]) continue;
+    for (const [other, c] of Object.entries(chosen)) if (ITEM_BY_ID[other] && c >= RULES.confusionDrillAt && (!drill || c > drill.c)) drill = { target, other, c };
   }
 
-  // 2) new items: an intro, then practice later in the lesson
   for (const it of fresh) add(it, 'intro');
-
-  // 3) due reviews from any unlocked unit, weakest first (about 30%)
-  const due = [...unlockedItems].map((id) => ITEM_BY_ID[id])
-    .filter((it) => p.mastery[it.id]?.seen > 0 && p.mastery[it.id].due <= now)
+  const due = seenAll.map((id) => ITEM_BY_ID[id])
+    .filter((it) => it.stage !== stage.id && p.mastery[it.id].due <= now)
     .sort((a, b) => m(p, a.id).score - m(p, b.id).score);
-  const reviewSlots = Math.max(2, Math.round(RULES.lessonLength * 0.3));
-  due.filter((it) => it.unit !== unit.id).slice(0, reviewSlots).forEach((it) => add(it, null));
-
+  due.slice(0, fresh.length ? 1 : 2).forEach((it) => add(it, null));
   if (drill) add(ITEM_BY_ID[drill.target], 'listen', { partner: drill.other, drill: true });
-
-  // 4) current unit practice: fresh items again, then weakest known
-  for (const it of fresh) add(it, null);
+  for (const it of fresh) if (plan.length < LEN - 1) add(it, null);
   const weak = known.slice().sort((a, b) => m(p, a.id).score - m(p, b.id).score);
-  for (const it of weak) { if (plan.length >= RULES.lessonLength - 1) break; if ((used.get(it.id) || 0) < 2) add(it, null); }
-  // top up from the unit if it's still short
-  for (const it of shuffle(unit.items)) { if (plan.length >= RULES.lessonLength - 1) break; if (!used.has(it.id)) add(it, null); }
-
-  // 5) end on a win: the easiest known item, simple listening
-  const easiest = known.slice().sort((a, b) => m(p, b.id).score - m(p, a.id).score)[0] || fresh[0] || unit.items[0];
-  add(easiest, 'listen', { easy: true });
-
-  // assign activities with variety (max 3 of a kind, at least one trace / read when eligible)
-  const counts = {};
-  for (const st of plan) {
-    if (st.activity) { counts[st.activity] = (counts[st.activity] || 0) + 1; continue; }
-    const item = ITEM_BY_ID[st.itemId];
-    const opts = activitiesFor(item, m(p, item.id).score).filter((a) => (counts[a] || 0) < 3);
-    const missing = opts.find((a) => (a === 'trace' || a === 'read') && !counts[a]);
-    st.activity = missing || opts[Math.floor(Math.random() * opts.length)] || 'listen';
-    counts[st.activity] = (counts[st.activity] || 0) + 1;
+  for (const it of weak) if (plan.length < LEN - 1 && (used.get(it.id) || 0) < 2) add(it, null);
+  for (let round = 0; round < 2 && plan.length < LEN - 1; round++) {
+    for (const it of shuffle(pool)) if (plan.length < LEN - 1 && (used.get(it.id) || 0) <= round) add(it, null);
   }
-  return { id: `L${now}`, unit: unit.id, createdAt: now, index: 0, steps: plan, results: [], coinsEarned: 0, combo: 0, wrongRun: 0 };
+  const easiest = known.slice().sort((a, b) => m(p, b.id).score - m(p, a.id).score)[0] || fresh[0] || pool[0];
+  plan.push({ itemId: easiest.id, activity: 'stars', easy: true });
+
+  // give each step an activity: variety, at least one game, a trace/read when ready
+  const counts = {};
+  const bump = (a) => { counts[a] = (counts[a] || 0) + 1; };
+  plan.forEach((st) => { if (st.activity) bump(st.activity); });
+  for (const st of plan) {
+    if (st.activity) continue;
+    const item = ITEM_BY_ID[st.itemId];
+    const opts = activitiesFor(item, m(p, item.id).score).filter((a) => (counts[a] || 0) < RULES.maxSameActivity);
+    const wanted = opts.find((a) => (a === 'trace' || a === 'read') && !counts[a]) || (GAMES.some((g) => counts[g]) ? null : opts.find((g) => GAMES.includes(g)));
+    st.activity = wanted || opts[Math.floor(Math.random() * opts.length)] || 'listen';
+    bump(st.activity);
+  }
+  return { id: `L${now}`, unit: unit.id, stage: stage.id, createdAt: now, index: 0, steps: plan, results: [], coinsEarned: 0, combo: 0, bestCombo: 0, wrongRun: 0 };
 }
 
 // ---- scoring ---------------------------------------------------------------

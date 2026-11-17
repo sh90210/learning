@@ -1,6 +1,6 @@
 // Offline support: the app shell is cached on install; audio and fonts are
 // cached the first time they play. Bump VERSION when files change.
-const VERSION = 'v1.0.1';
+const VERSION = 'v1.1.0';
 const SHELL = [
   './', 'index.html', 'manifest.webmanifest', 'css/app.css',
   'js/main.js', 'js/ui.js', 'js/audio.js', 'js/lines.js', 'js/art.js', 'js/hangul.js', 'js/curriculum.js',

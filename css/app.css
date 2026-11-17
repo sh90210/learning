@@ -177,3 +177,93 @@ svg { display: block; }
 
 .splash { align-items: center; justify-content: center; gap: 24px; }
 .toast { position: absolute; left: 50%; bottom: 40px; transform: translateX(-50%); background: #FFFFFF; color: #1B2340; font-family: system-ui, sans-serif; font-size: 18px; padding: 12px 20px; border-radius: 12px; z-index: 50; }
+
+/* ---- v2: games, stages, shop ------------------------------------------------ */
+.pill.combo { color: #FF8A3D; }
+.pill.combo svg { width: 26px; height: 30px; }
+.mango-btn { display: block; }
+.mango { overflow: visible; transform-origin: 50% 55%; }
+.mango .flame { animation: flicker 0.25s infinite alternate; transform-origin: center top; }
+.mango .twinkle { animation: twinkle 1.4s ease-in-out infinite; }
+.mango .float { animation: floaty 2.2s ease-in-out infinite; }
+.mango .flap { animation: flap 0.6s ease-in-out infinite alternate; transform-origin: 100px 120px; }
+.mango .pet { animation: hop 1.6s ease-in-out infinite; }
+@keyframes flicker { to { transform: scaleY(1.35); opacity: 0.7; } }
+@keyframes twinkle { 50% { opacity: 0.3; } }
+@keyframes floaty { 50% { transform: translateY(-10px); } }
+@keyframes flap { to { transform: scaleX(1.08); } }
+@keyframes hop { 50% { transform: translateY(-6px); } }
+.mango.d-bounce.dancing { animation: d-bounce 0.5s ease-in-out 4; }
+.mango.d-jump.dancing { animation: d-jump 0.6s ease-in-out 4; }
+.mango.d-spin.dancing { animation: d-spin 1.2s ease-in-out 2; }
+.mango.d-wiggle.dancing { animation: d-wiggle 0.35s ease-in-out 7; transform-origin: 50% 90%; }
+.mango.d-robot.dancing { animation: d-robot 1.2s steps(4) 2; }
+@keyframes d-bounce { 50% { transform: translateY(-10px); } }
+@keyframes d-jump { 40% { transform: translateY(-50px) scale(1.05, 0.95); } 70% { transform: translateY(0) scale(1.1, 0.9); } }
+@keyframes d-spin { to { transform: rotate(360deg); } }
+@keyframes d-wiggle { 25% { transform: rotate(-12deg); } 75% { transform: rotate(12deg); } }
+@keyframes d-robot { 25% { transform: translateX(-16px) rotate(-6deg); } 50% { transform: translateX(0) rotate(0); } 75% { transform: translateX(16px) rotate(6deg); } }
+
+.sky-game { overflow: hidden; display: block; }
+.falling { position: absolute; top: -170px; width: 170px; height: 170px; animation: fall 6.5s linear infinite; }
+.falling svg { position: absolute; inset: 0; width: 100%; height: 100%; filter: drop-shadow(0 0 18px var(--c)); }
+.falling span { position: relative; font-size: 64px; color: #151B3D; display: flex; align-items: center; justify-content: center; height: 100%; padding-top: 12px; }
+.falling.word span { font-size: 34px; }
+.falling.caught { animation-play-state: paused; transform: scale(1.25); }
+.falling.poof { animation-play-state: paused; opacity: 0.25; }
+@keyframes fall { from { transform: translateY(0) rotate(-8deg); } to { transform: translateY(700px) rotate(8deg); } }
+
+.balloons { overflow: hidden; display: flex; align-items: flex-end; justify-content: space-around; padding: 0 30px; }
+.balloon { position: relative; display: flex; flex-direction: column; align-items: center; animation: sway 3s ease-in-out infinite; }
+.balloon .b-body { width: 140px; height: 168px; border-radius: 50% 50% 46% 46%; background: var(--c); color: #151B3D; font-size: 66px; display: flex; align-items: center; justify-content: center; box-shadow: inset -14px -12px 0 rgba(0, 0, 0, 0.12); }
+.balloon.word .b-body { font-size: 32px; }
+.balloon .b-string { width: 2px; height: 90px; background: rgba(255, 255, 255, 0.6); }
+.balloon:nth-child(odd) { margin-bottom: 120px; }
+.balloon.popped { animation: pop 0.3s forwards; pointer-events: none; }
+.balloon.bad { animation: shake 0.35s; }
+@keyframes sway { 50% { transform: translateY(-18px) rotate(3deg); } }
+@keyframes pop { to { transform: scale(1.6); opacity: 0; } }
+
+.cards { display: grid; gap: 18px; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.cards.c4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.card-flip { width: 170px; height: 190px; border-radius: 26px; position: relative; perspective: 600px; }
+.card-flip span { position: absolute; inset: 0; border-radius: 26px; display: flex; align-items: center; justify-content: center; backface-visibility: hidden; transition: transform 0.35s; }
+.card-flip .back { background: var(--violet); box-shadow: 0 0 22px rgba(123, 92, 250, 0.6); }
+.card-flip .back svg { width: 70px; height: 70px; }
+.card-flip .front { background: #FFFFFF; color: #151B3D; font-size: 96px; transform: rotateY(180deg); }
+.card-flip.word .front { font-size: 34px; padding: 8px; text-align: center; }
+.card-flip.up .back, .card-flip.matched .back { transform: rotateY(180deg); }
+.card-flip.up .front, .card-flip.matched .front { transform: rotateY(360deg); }
+.card-flip.matched .front { background: #DDF7E4; outline: 6px solid var(--good); }
+
+.picframe { width: 260px; height: 260px; border-radius: 50%; background: #FFFFFF; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 40px rgba(255, 255, 255, 0.35); }
+.picframe svg { width: 210px; height: 210px; }
+.picframe.small { width: 150px; height: 150px; }
+.picframe.small svg { width: 120px; height: 120px; }
+.word-line .tile:not(.empty) { color: #FFFFFF; }
+
+.stones { position: relative; height: 100%; }
+.stone { position: absolute; transform: translate(-50%, 0); display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.stone .num { width: 120px; height: 120px; border-radius: 50%; background: var(--c); color: #151B3D; font-size: 60px; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 30px var(--c); }
+.stone.current .num { outline: 6px solid rgba(255, 216, 107, 0.85); outline-offset: 8px; animation: bob 2.4s ease-in-out infinite; }
+.stone .peek { font-size: 22px; color: var(--soft); width: 200px; text-align: center; line-height: 1.3; }
+.stone .stars { display: flex; gap: 2px; }
+.stone .stars svg { width: 24px; height: 24px; }
+.orb-mini { width: 64px; height: 64px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 26px; color: #FFFFFF; }
+.round.nav { width: 84px; height: 84px; }
+.round.nav svg { width: 34px; height: 34px; }
+.round.nav:disabled { opacity: 0.25; }
+.planet-btn.new .orb { opacity: 0.7; }
+
+.chest { width: 190px; height: 160px; animation: wobble 1.6s ease-in-out infinite; }
+.chest svg { width: 100%; height: 100%; }
+.chest.opened { animation: none; }
+@keyframes wobble { 0%, 70%, 100% { transform: rotate(0); } 80% { transform: rotate(-8deg); } 90% { transform: rotate(8deg); } }
+
+.shop-tabs { flex-wrap: wrap; gap: 10px; }
+.shop-tabs .tab { font-size: 26px; padding: 8px 18px; }
+.shop { min-height: 0; }
+.igrid { grid-template-columns: repeat(4, minmax(0, 1fr)); overflow-y: auto; }
+.item { height: 200px; }
+.item.sel { outline: 4px solid var(--teal); }
+.mirror .buy { margin-top: 4px; }

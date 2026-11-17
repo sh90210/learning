@@ -3,8 +3,8 @@
 import { app, html, mount, on, $, $$, talk, coinPill, burst, wait, esc } from './ui.js';
 import { say, sfx, stop } from './audio.js';
 import { pick } from './lines.js';
-import { ICON, mango, STICKERS, STICKER_SETS } from './art.js';
-import { ITEM_BY_ID, UNITS } from './curriculum.js';
+import { ICON, mango, STICKERS, STICKER_SETS, STICKER_BY_ID } from './art.js';
+import { ITEM_BY_ID, UNITS, PICTURE } from './curriculum.js';
 import { compose, letterSound, syllableSimilarity, decompose } from './hangul.js';
 import { m, makeStep, buildSpec, distractors, recordAnswer, markExposure, saveProfile, checkUnlocks, finishLessonDay } from './engine.js';
 import { store } from './store.js';
@@ -29,10 +29,10 @@ function prepare(step) {
   const p = app.profile;
   const item = ITEM_BY_ID[step.itemId];
   const struggling = L.wrongRun >= 2;
-  if ((step.activity === 'listen' || step.activity === 'sight') && !step.choices) {
-    step.choices = step.partner ? [item.id, step.partner].sort(() => Math.random() - 0.5) : makeStep(p, item, step.activity, struggling).choices;
+  if (step.partner && !step.choices) step.choices = [item.id, step.partner].sort(() => Math.random() - 0.5);
+  if (!step.choices && !step.build && !step.cards && !step.fill && !['intro', 'trace', 'read'].includes(step.activity)) {
+    Object.assign(step, makeStep(p, item, step.activity, struggling), { itemId: step.itemId, activity: step.activity });
   }
-  if (step.activity === 'build' && !step.build) step.build = buildSpec(p, item, struggling ? 3 : 4);
   return item;
 }
 
@@ -46,6 +46,7 @@ function frame(item, { bubbleHint = '', body = '' }) {
         <div class="track"></div><div class="done" style="width:${pct}%"></div>
         <span class="ship" style="left:calc(${pct}% - 24px)">${ICON.rocket()}</span>
       </div>
+      ${L.combo >= 2 ? `<span class="pill combo" aria-label="연속 ${L.combo}">${ICON.fire()} ${L.combo}</span>` : ''}
       ${coinPill(p.coins)}
     </div>
     <div class="row grow" style="gap:32px;align-items:stretch">
@@ -68,7 +69,7 @@ async function next() {
   const step = L.steps[L.index];
   const item = prepare(step);
   await persist();
-  const run = { intro, listen: choose, sight: choose, build, trace: traceStep, read: readStep }[step.activity] || choose;
+  const run = { intro, listen: choose, sight: choose, picture: choose, build, trace: traceStep, read: readStep, stars, balloon, memory, fill }[step.activity] || choose;
   run(step, item);
 }
 
@@ -81,6 +82,7 @@ async function done(step, item, { correct, ms, chosen = null, weight = 1, extra 
   if (correct) {
     L.wrongRun = 0;
     L.combo++;
+    L.bestCombo = Math.max(L.bestCombo || 0, L.combo);
     p.coins += 5; L.coinsEarned += 5;
     if (L.combo % 3 === 0) { p.coins += 3; L.coinsEarned += 3; sfx('coin'); await say(pick('combo')); }
   } else {
@@ -114,10 +116,12 @@ async function finish() {
   const unlocked = checkUnlocks(p)[0] || null;
   await saveProfile(p);
   await store.del('lesson:tay');
-  await store.addEvent({ kid: 'tay', type: 'lesson_end', lesson: L.id, unit: L.unit, accuracy, coins: L.coinsEarned, sticker, unlocked, steps: L.steps.length });
+  await store.addEvent({ kid: 'tay', type: 'lesson_end', lesson: L.id, unit: L.unit, stage: L.stage, accuracy, coins: L.coinsEarned, sticker, unlocked, steps: L.steps.length });
   const coins = L.coinsEarned;
+  const L_stage = L.stage;
+  const bestCombo = L.bestCombo || 0;
   L = null;
-  app.go('reward', { accuracy, coins, sticker, unlocked });
+  app.go('reward', { accuracy, coins, sticker, unlocked, stage: L_stage, bestCombo });
 }
 
 function sound(item) { return item.text; }
@@ -152,7 +156,8 @@ function intro(step, item) {
 
 // ---- listen & pick / sight match ----------------------------------------------------
 function choose(step, item) {
-  const listen = step.activity !== 'sight';
+  const picture = step.activity === 'picture';
+  const listen = step.activity === 'listen';
   const cls = item.kind === 'syl' ? '' : item.kind === 'word' ? 'word' : 'sentence';
   const choices = step.choices.map((id, i) => {
     const it = ITEM_BY_ID[id];
@@ -161,14 +166,15 @@ function choose(step, item) {
   }).join('');
   const target = listen
     ? `<button class="speak again" aria-label="소리 다시 듣기" style="width:170px;height:170px">${ICON.speaker()}</button>`
+    : picture ? `<div class="picframe">${STICKER_BY_ID[PICTURE[item.text]].svg()}</div>`
     : `<div class="tile huge" style="background:#FF8A3D;box-shadow:0 0 36px rgba(255,138,61,0.6)">${esc(item.text)}</div>`;
   const el = mount(frame(item, {
-    bubbleHint: listen ? '잘 듣고 골라 봐!' : '똑같은 글자를 찾아 봐!',
+    bubbleHint: listen ? '잘 듣고 골라 봐!' : picture ? '그림에 맞는 낱말은?' : '똑같은 글자를 찾아 봐!',
     body: `<div class="board" style="flex-direction:column;gap:30px">${target}</div><div class="choices">${choices}</div>`
   }));
   bindQuit(el);
   const speak = $(el, '.speak');
-  const instr = listen ? pick(item.kind === 'syl' ? 'listen' : 'listen_word') : pick('sight');
+  const instr = listen ? pick(item.kind === 'syl' ? 'listen' : 'listen_word') : picture ? pick('picture') : pick('sight');
   const play = () => talk(speak, instr, listen ? sound(item) : null);
   play();
   on(el, '.speak:not(.again)', play);
@@ -391,6 +397,200 @@ function readStep(step, item) {
       await say(pick('read_try'), item.text);
       done(step, item, { correct: false, weight: r.asr ? 0.25 : 0, extra });
       return true;
+    }
+  });
+}
+
+// ---- 별똥별 잡기: tap the falling star that carries the sound ----------------------
+function stars(step, item) {
+  const lanes = step.choices.length;
+  const cls = item.kind === 'syl' ? '' : 'word';
+  const starsHtml = step.choices.map((id, i) => {
+    const [bg] = PALETTE[i % PALETTE.length];
+    const delay = (i * 0.9 + Math.random() * 0.6).toFixed(2);
+    return `<button class="falling ${cls}" data-id="${esc(id)}" style="left:${8 + (i * 84) / lanes}%;animation-delay:-${delay}s;--c:${bg}">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5l2.9 6.1 6.6.8-4.9 4.5 1.3 6.6L12 17.2l-5.9 3.3 1.3-6.6-4.9-4.5 6.6-.8z" fill="${bg}"/></svg>
+      <span>${esc(ITEM_BY_ID[id].text)}</span></button>`;
+  }).join('');
+  const el = mount(frame(item, {
+    bubbleHint: '소리를 듣고 별똥별을 잡아!',
+    body: `<div class="board sky-game">${starsHtml}<button class="speak again" aria-label="소리 다시 듣기" style="position:absolute;right:20px;bottom:20px">${ICON.speaker()}</button></div>`
+  }));
+  bindQuit(el);
+  const speak = $(el, '.speak');
+  const play = () => talk(speak, pick('stars'), sound(item));
+  play();
+  on(el, '.speak:not(.again)', play);
+  on(el, '.again', () => say(sound(item)));
+  const t0 = Date.now();
+  let misses = 0, first = null, locked = false;
+  on(el, '.falling', async (b) => {
+    if (locked) return;
+    const id = b.dataset.id;
+    if (first === null) first = id;
+    if (id === item.id) {
+      locked = true;
+      b.classList.add('caught');
+      sfx('star'); burst($(el, '.board'));
+      await say(pick('correct'), sound(item));
+      done(step, item, { correct: misses === 0, ms: Date.now() - t0, chosen: misses ? first : null });
+    } else {
+      misses++;
+      b.classList.add('poof');
+      sfx('bad');
+      if (misses === 1) await say(pick('wrong'), sound(item));
+      else {
+        locked = true;
+        $(el, `.falling[data-id="${CSS.escape(item.id)}"]`).classList.add('caught');
+        await say(pick('show_answer'), sound(item));
+        done(step, item, { correct: false, ms: Date.now() - t0, chosen: first });
+      }
+    }
+  });
+}
+
+// ---- 풍선 터뜨리기: pop every balloon with the sound -----------------------------
+function balloon(step, item) {
+  const total = step.choices.filter((id) => id === item.id).length;
+  const cls = item.kind === 'syl' ? '' : 'word';
+  const colors = ['#FF5D73', '#FFD86B', '#5ED3C7', '#9EC5FF', '#FF9AC4', '#C8F27A'];
+  const balloons = step.choices.map((id, i) => `<button class="balloon ${cls}" data-id="${esc(id)}" style="--c:${colors[i % colors.length]};animation-delay:-${(i * 0.7).toFixed(1)}s">
+      <span class="b-body">${esc(ITEM_BY_ID[id].text)}</span><span class="b-string"></span></button>`).join('');
+  const el = mount(frame(item, {
+    bubbleHint: `이 소리 풍선을 모두 터뜨려! (${total}개)`,
+    body: `<div class="board balloons">${balloons}<button class="speak again" aria-label="소리 다시 듣기" style="position:absolute;right:20px;top:20px">${ICON.speaker()}</button></div>`
+  }));
+  bindQuit(el);
+  const speak = $(el, '.speak');
+  const play = () => talk(speak, pick('balloon'), sound(item));
+  play();
+  on(el, '.speak:not(.again)', play);
+  on(el, '.again', () => say(sound(item)));
+  const t0 = Date.now();
+  let popped = 0, misses = 0, first = null, locked = false;
+  on(el, '.balloon', async (b) => {
+    if (locked || b.classList.contains('popped')) return;
+    const id = b.dataset.id;
+    if (id === item.id) {
+      b.classList.add('popped');
+      sfx('pop');
+      popped++;
+      if (popped === total) {
+        locked = true;
+        burst($(el, '.board'));
+        await say(pick('correct'), sound(item));
+        done(step, item, { correct: misses === 0, ms: Date.now() - t0, chosen: misses ? first : null });
+      } else say(sound(item));
+    } else {
+      if (first === null) first = id;
+      misses++;
+      b.classList.add('bad');
+      setTimeout(() => b.classList.remove('bad'), 400);
+      sfx('bad');
+      await say(pick('balloon_wrong'), sound(item));
+      if (misses >= 3) {
+        locked = true;
+        $$(el, `.balloon[data-id="${CSS.escape(item.id)}"]`).forEach((x) => x.classList.add('popped'));
+        await say(pick('show_answer'), sound(item));
+        done(step, item, { correct: false, ms: Date.now() - t0, chosen: first });
+      }
+    }
+  });
+}
+
+// ---- 짝 맞추기: memory cards; every flip says the card out loud -------------------
+function memory(step, item) {
+  const cls = item.kind === 'syl' ? '' : 'word';
+  const cards = step.cards.map((id, i) => `<button class="card-flip ${cls}" data-id="${esc(id)}" data-i="${i}" aria-label="카드">
+      <span class="back">${ICON.star('#FFD86B')}</span><span class="front">${esc(ITEM_BY_ID[id].text)}</span></button>`).join('');
+  const el = mount(frame(item, {
+    bubbleHint: '똑같은 글자 짝을 찾아!',
+    body: `<div class="board"><div class="cards c${step.cards.length}">${cards}</div></div>`
+  }));
+  bindQuit(el);
+  const speak = $(el, '.speak');
+  const play = () => talk(speak, pick('memory'));
+  play();
+  on(el, '.speak', play);
+  const t0 = Date.now();
+  let open = [], matched = 0, flips = 0, busy = false;
+  const pairs = step.pairs.length;
+  on(el, '.card-flip', async (c) => {
+    if (busy || c.classList.contains('up') || c.classList.contains('matched')) return;
+    c.classList.add('up');
+    flips++;
+    sfx('pop');
+    open.push(c);
+    say(ITEM_BY_ID[c.dataset.id].text);
+    if (open.length < 2) return;
+    busy = true;
+    const [a, b] = open;
+    open = [];
+    await wait(700);
+    if (a.dataset.id === b.dataset.id) {
+      a.classList.add('matched'); b.classList.add('matched');
+      sfx('ok');
+      matched++;
+      if (matched < pairs) { busy = false; say(pick('memory_match'), ITEM_BY_ID[a.dataset.id].text); return; }
+      await say(pick('memory_match'), ITEM_BY_ID[a.dataset.id].text);
+      {
+        burst($(el, '.board'));
+        await say(pick('correct'));
+        // good memory = few extra flips
+        done(step, item, { correct: flips <= pairs * 2 + 4, ms: Date.now() - t0, weight: 0.5, extra: { flips } });
+        return;
+      }
+    } else {
+      a.classList.remove('up'); b.classList.remove('up');
+    }
+    busy = false;
+  });
+}
+
+// ---- 빈칸 채우기: which syllable is missing from the word? -------------------------
+function fill(step, item) {
+  const f = step.fill;
+  const syl = [...item.text.replace(/ /g, '')];
+  const word = syl.map((ch, i) => i === f.at
+    ? `<div class="tile empty" data-slot>?</div>` : `<div class="tile">${esc(ch)}</div>`).join('');
+  const opts = f.options.map((t, i) => {
+    const [bg, glow] = PALETTE[i % PALETTE.length];
+    return `<button class="choice" data-t="${esc(t)}" style="background:${bg};--glow:${glow}">${esc(t)}</button>`;
+  }).join('');
+  const pic = PICTURE[item.text] ? `<div class="picframe small">${STICKER_BY_ID[PICTURE[item.text]].svg()}</div>` : '';
+  const el = mount(frame(item, {
+    bubbleHint: '빈칸에 들어갈 글자는?',
+    body: `<div class="board" style="flex-direction:column;gap:20px">${pic}<div class="word-line">${word}</div>
+      <button class="speak again small" aria-label="낱말 듣기">${ICON.speaker()}</button></div><div class="choices">${opts}</div>`
+  }));
+  bindQuit(el);
+  const speak = $(el, '.speak');
+  const play = () => talk(speak, pick('fill'), sound(item));
+  play();
+  on(el, '.speak:not(.again)', play);
+  on(el, '.again', () => say(sound(item)));
+  const t0 = Date.now();
+  let misses = 0, locked = false;
+  on(el, '.choice', async (b) => {
+    if (locked) return;
+    const slot = $(el, '[data-slot]');
+    if (b.dataset.t === f.answer) {
+      locked = true;
+      slot.textContent = f.answer; slot.classList.remove('empty');
+      sfx('ok'); burst($(el, '.board'));
+      await say(item.text, pick('correct'));
+      done(step, item, { correct: misses === 0, ms: Date.now() - t0 });
+    } else {
+      misses++;
+      b.classList.add('bad');
+      sfx('bad');
+      if (misses === 1) await say(pick('wrong'), item.text);
+      else {
+        locked = true;
+        slot.textContent = f.answer; slot.classList.remove('empty');
+        await say(pick('show_answer'), item.text);
+        done(step, item, { correct: false, ms: Date.now() - t0 });
+      }
     }
   });
 }
