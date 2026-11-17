@@ -1,7 +1,7 @@
 // One lesson = a list of steps built by the engine. Progress is saved after
 // every step, so closing the app mid-lesson resumes at the same question.
 import { app, html, mount, on, $, $$, talk, coinPill, burst, wait, esc } from './ui.js';
-import { say, sfx, stop } from './audio.js';
+import { say, sfx, stop, hasClip } from './audio.js';
 import { pick } from './lines.js';
 import { ICON, mango, STICKERS, STICKER_SETS, STICKER_BY_ID } from './art.js';
 import { ITEM_BY_ID, UNITS, PICTURE } from './curriculum.js';
@@ -260,7 +260,7 @@ function buildJamo(step, item, b) {
       x.classList.add('bad');
       sfx('bad');
       // let him hear what he made, then the target
-      if (made) await say(made);
+      if (made && await hasClip(made)) await say(made);
       if (misses === 1) await say(pick('wrong'), sound(item));
       else {
         locked = true;
@@ -310,7 +310,7 @@ function buildOrder(step, item, b) {
       slot.textContent = t; slot.classList.remove('empty');
       x.classList.add('used');
       sfx('pop');
-      say(t);
+      if (!sentence || await hasClip(t)) say(t);
       pos++;
       if (pos === b.tiles.length) {
         locked = true;

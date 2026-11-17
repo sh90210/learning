@@ -1,7 +1,7 @@
 // Audio: recorded clips first (audio/<voice>/manifest.json maps text -> file),
 // the tablet's Korean text-to-speech as a fallback.
 export const VOICES = {
-  playful: { label: '장난꾸러기', pitch: 1.35, rate: 0.95 },
+  playful: { label: '세나 (발랄한 목소리)', pitch: 1.35, rate: 0.95 },
   female: { label: '여자 목소리', pitch: 1.1, rate: 0.9 },
   male: { label: '남자 목소리', pitch: 0.8, rate: 0.9 }
 };
