@@ -1,0 +1,49 @@
+// Everything 망고 says. Each line is recorded once per voice (see audio/), and
+// falls back to the tablet's Korean voice if a clip is missing.
+// Several variants per id keep it from sounding repetitive.
+export const LINES = {
+  who: ['누가 공부할 거예요? 얼굴을 눌러 보세요!'],
+  name_tay: ['태이!'],
+  name_theo: ['태오!'],
+  theo_soon: ['태오 형의 수학 방은 곧 열려요! 조금만 기다려 줘!'],
+  hello: ['안녕, 태이야! 나는 망고야! 오늘도 한글 우주 여행 떠나 볼까?', '태이야, 반가워! 망고랑 같이 한글 별을 모으러 가자!'],
+  welcome_back: ['태이야, 다시 왔구나! 하던 거 계속하자!'],
+  map_go: ['큰 로켓 버튼을 누르면 출발이야!'],
+  planet_locked: ['이 행성은 아직 잠겨 있어. 앞의 행성을 먼저 탐험하자!'],
+  intro_new: ['새로운 글자를 배워 볼까? 잘 들어 봐!'],
+  listen: ['잘 듣고, 맞는 글자를 눌러 봐!', '어떤 글자일까? 소리를 듣고 골라 봐!'],
+  listen_word: ['잘 듣고, 맞는 낱말을 눌러 봐!'],
+  build: ['블록을 붙여서 이 소리를 만들어 봐!', '어떤 블록을 붙여야 할까? 소리를 잘 들어 봐!'],
+  build_word: ['글자 블록을 순서대로 눌러서 낱말을 만들어 봐!'],
+  build_sentence: ['낱말을 순서대로 눌러서 문장을 만들어 봐!'],
+  sight: ['위에 있는 글자랑 똑같은 글자를 찾아 봐!'],
+  trace: ['손가락으로 글자를 따라 써 봐! 다 쓰면 동그라미 버튼을 눌러!'],
+  trace_retry: ['조금만 더! 회색 글자 위를 꼭꼭 따라 써 봐!'],
+  read: ['이 글자를 소리 내서 읽어 봐! 마이크를 누르고 말해 봐!'],
+  read_word: ['이 낱말을 소리 내서 읽어 봐! 마이크를 누르고 말해 봐!'],
+  listening: ['듣고 있어! 말해 봐!'],
+  read_good: ['우와, 정말 잘 읽었어!', '맞아! 태이 목소리 최고야!'],
+  read_close: ['좋아! 거의 다 왔어! 한 번 더 들어 볼까?'],
+  read_try: ['멋진 목소리야! 망고가 읽어 줄게, 잘 들어 봐!'],
+  correct: ['맞았어! 태이 최고!', '우와, 태이야 대단해!', '딩동댕! 잘했어!', '태이 천재 아니야?', '정답! 별이 반짝반짝!'],
+  combo: ['연속으로 맞혔어! 보너스 코인이야!'],
+  wrong: ['아깝다! 다시 들어 볼까?', '괜찮아, 한 번 더 해 보자!'],
+  show_answer: ['이게 정답이야. 같이 들어 보자!'],
+  lesson_done: ['태이야, 오늘 수업 끝! 정말 잘했어!', '와, 태이 오늘도 해냈다! 망고가 너무 기뻐!'],
+  new_sticker: ['새 스티커를 받았어! 스티커 책에 붙여 보자!'],
+  unit_unlock: ['새로운 행성이 열렸어! 태이 정말 대단해!'],
+  stickers: ['태이의 스티커 책이야! 스티커를 누르면 읽어 줄게!'],
+  shop: ['망고 옷 가게에 온 걸 환영해! 마음에 드는 걸 골라 봐!'],
+  shop_need: ['코인이 조금 더 필요해. 같이 공부해서 모으자!'],
+  shop_bought: ['와, 멋지다! 망고가 정말 좋아해! 고마워, 태이야!'],
+  shop_wear: ['짠! 어때? 잘 어울려?'],
+  bye: ['오늘도 고마워, 태이야! 또 만나!']
+};
+
+// Short words for interface sounds; also recorded.
+export const UI_WORDS = ['출발!', '스티커 책', '망고 옷 가게', '다시', '좋아요'];
+
+export function pick(id) {
+  const arr = LINES[id] || [id];
+  return arr[Math.floor(Math.random() * arr.length)];
+}
