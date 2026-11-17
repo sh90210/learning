@@ -267,3 +267,52 @@ svg { display: block; }
 .item { height: 200px; }
 .item.sel { outline: 4px solid var(--teal); }
 .mirror .buy { margin-top: 4px; }
+
+/* ===== World 1: words with pictures ===== */
+.wpic { width: 100%; height: 100%; object-fit: contain; pointer-events: none; user-select: none; border-radius: 18px; }
+.picframe { overflow: hidden; padding: 18px; }
+.picframe .wpic { width: 100%; height: 100%; }
+.picframe.big { width: 330px; height: 330px; border-radius: 48px; }
+.picframe.small { padding: 10px; }
+.meet .word-line .tile.syl { min-width: 150px; height: 170px; font-size: 118px; color: #151B3D; transition: transform 0.15s, box-shadow 0.15s; }
+.meet .word-line .tile.syl.lit { transform: translateY(-14px) scale(1.08); box-shadow: 0 0 40px #FFFFFF; }
+.big-btn.pulse { animation: bob 1.2s ease-in-out infinite; box-shadow: 0 0 40px rgba(255, 216, 107, 0.9); }
+.word-card { background: #7B5CFA; font-size: 120px; padding: 6px 48px; min-height: 180px; box-shadow: 0 0 40px rgba(123, 92, 250, 0.7); letter-spacing: 6px; }
+.pics { display: flex; gap: 26px; }
+.pic-choice { width: 210px; height: 210px; border-radius: 36px; background: #FFFFFF; padding: 14px; box-shadow: 0 0 26px rgba(255, 255, 255, 0.3); transition: transform 0.12s; }
+.pics.n2 .pic-choice { width: 250px; height: 250px; }
+.pic-choice:active { transform: scale(0.95); }
+.pic-choice.good { outline: 10px solid var(--good); transform: scale(1.08); }
+.pic-choice.bad { animation: shake 0.35s; opacity: 0.4; }
+.choice.with-pic { display: flex; align-items: center; gap: 14px; padding-left: 12px; }
+.choice .wpic.mini { width: 96px; height: 96px; background: #FFFFFF; border-radius: 22px; padding: 6px; }
+.clue { position: absolute; left: 22px; top: 22px; width: 190px; height: 190px; border-radius: 36px; background: #FFFFFF; padding: 12px; z-index: 2; box-shadow: 0 0 30px rgba(255, 255, 255, 0.4); }
+.falling.word span { font-size: 44px; }
+.card-flip.word .front { font-size: 52px; }
+.card-flip.pic .front { padding: 14px; }
+.connect { justify-content: space-around; align-items: stretch; padding: 22px 60px; }
+.connect .col { display: flex; flex-direction: column; justify-content: space-around; gap: 14px; z-index: 1; }
+.connect .lines { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 2; }
+.cword { min-width: 240px; height: 112px; border-radius: 34px; font-size: 62px; background: var(--c); color: #151B3D; box-shadow: 0 0 22px var(--c); transition: transform 0.12s; }
+.cpic { width: 124px; height: 124px; border-radius: 28px; background: #FFFFFF; padding: 8px; transition: transform 0.12s; }
+.cword.sel, .cpic.sel { outline: 8px solid #FFFFFF; transform: scale(1.08); }
+.cword.bad, .cpic.bad { animation: shake 0.35s; }
+.cword.matched, .cpic.matched { opacity: 0.85; outline: 6px solid var(--good); }
+.sfxbtn { box-shadow: 0 0 40px rgba(94, 211, 199, 0.8); }
+
+/* 망고 섬 map */
+.island { position: absolute; left: 50%; top: 52%; transform: translate(-50%, -50%); pointer-events: none; }
+.stop { position: absolute; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.stop .badge { width: 128px; height: 128px; border-radius: 50%; background: #FFFFFF; padding: 12px; box-shadow: 0 0 0 8px var(--c), 0 0 40px var(--c); }
+.stop.current .badge { width: 150px; height: 150px; animation: bob 2.4s ease-in-out infinite; box-shadow: 0 0 0 8px var(--c), 0 0 0 18px rgba(255, 216, 107, 0.7), 0 0 50px var(--c); }
+.stop .name { font-size: 30px; background: rgba(21, 27, 61, 0.75); padding: 2px 16px; border-radius: 999px; }
+.stop .stars { display: flex; gap: 2px; }
+.stop .stars svg { width: 24px; height: 24px; }
+.stop.soon .badge { background: rgba(255, 255, 255, 0.12); box-shadow: 0 0 0 6px rgba(255, 255, 255, 0.18); display: flex; align-items: center; justify-content: center; font-size: 64px; color: rgba(255, 255, 255, 0.55); width: 104px; height: 104px; }
+.stone .thumbs { display: flex; gap: 6px; }
+.stone .thumbs img { width: 64px; height: 64px; background: #FFFFFF; border-radius: 16px; padding: 4px; }
+.stone .num.review { font-size: 34px; }
+.orb-mini .wpic { background: #FFFFFF; border-radius: 50%; padding: 6px; }
+.falling.word { width: 230px; height: 120px; }
+.falling.word svg { display: none; }
+.falling.word span { font-size: 58px; padding-top: 0; background: var(--c); border-radius: 60px; box-shadow: 0 0 26px var(--c); }

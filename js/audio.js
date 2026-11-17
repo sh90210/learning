@@ -32,7 +32,7 @@ async function manifest(v) {
 export function setVoice(v) { if (VOICES[v]) voice = v; manifest(voice); }
 export function getVoice() { return voice; }
 
-export async function hasClip(text, v = voice) { const m = await manifest(v); return !!m[norm(text)]; }
+export async function hasClip(text, v = voice) { if (typeof text !== 'string') return false; const m = await manifest(v); return !!m[norm(text)]; }
 function norm(t) { return t.trim(); }
 
 export function stop() {
@@ -79,6 +79,13 @@ export async function say(...texts) {
   const m = await manifest(voice);
   for (const t of texts.flat()) {
     if (!t || my !== token) return;
+    if (typeof t === 'object') {
+      // a picture's sound effect, e.g. { sfx: 'lion' } -> assets/sfx/lion.mp3 (silent if missing)
+      if (t.sfx) await playClip(`assets/sfx/${t.sfx}.mp3`, my);
+      if (my !== token) return;
+      await new Promise((r) => setTimeout(r, 120));
+      continue;
+    }
     const file = m[norm(t)];
     let ok = false;
     if (file) ok = await playClip(`audio/${voice}/${file}`, my);

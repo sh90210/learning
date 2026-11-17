@@ -15,4 +15,5 @@ Built for a Galaxy Tab S10+ in landscape. Progress is saved on the tablet only.
 `audio/<voice>/manifest.json` maps each spoken text to an mp3 in the same folder. Anything without a clip is spoken by the tablet's Korean text-to-speech.
 
 ## Updating the curriculum
+World 1 ("망고 섬") teaches reading through picture words: chapters of 4 decodable words (간식 시간, 동물 친구), each split into short stages. Pictures are in `assets/img/`, picture sounds in `assets/sfx/`.
 Units live in `js/curriculum.js`; the rules (lesson length, unlock threshold, review timing) are `RULES` in `js/engine.js`. After changing files, bump `VERSION` in `sw.js` so the tablet picks up the update.

@@ -20,7 +20,7 @@ const MIN = 60 * 1000;
 export function newProfile(kid) {
   return {
     kid, coins: 0, stickers: [], owned: ['helmet'], equipped: { head: 'helmet' },
-    mastery: {}, confusions: {}, unlocked: ['u1'], lessonsDone: 0,
+    mastery: {}, confusions: {}, unlocked: ['c1'], lessonsDone: 0,
     streakDays: 0, lastDay: null, createdAt: Date.now(), curriculumVersion: 1
   };
 }
@@ -30,6 +30,8 @@ export async function loadProfile(kid) {
   // renamed shop item from the first version
   p.owned = p.owned.map((id) => (id === 'dino' ? 'dinohat' : id === 'antenna' ? 'antenna' : id));
   for (const k of Object.keys(p.equipped)) if (p.equipped[k] === 'dino') p.equipped[k] = 'dinohat';
+  // World 1 (word chapters) replaced the letter-grid planets
+  if (!p.unlocked.includes('c1')) p.unlocked.unshift('c1');
   return p;
 }
 export function saveProfile(p) { return store.set(`profile:${p.kid}`, p); }
@@ -77,18 +79,24 @@ export function checkUnlocks(p) {
 }
 
 // ---- choosing activities --------------------------------------------------
-export const GAMES = ['stars', 'balloon', 'memory'];
+export const GAMES = ['stars', 'balloon', 'memory', 'connect'];
 function activitiesFor(item, score) {
+  if (item.kind === 'word' && item.media) {
+    // early: lots of picture <-> word matching with the sound as a helper;
+    // later: the sound goes away and he has to read the word himself.
+    if (score < 25) return ['pickpic', 'connect', 'memory', 'stars', 'pickpic'];
+    if (score < 55) return ['pickpic', 'picture', 'stars', 'build', 'connect', 'sound', 'fill', 'memory'];
+    return ['read', 'picture', 'stars', 'fill', 'build', 'sound', 'balloon', 'connect'];
+  }
   if (item.kind === 'syl') {
     if (score < 25) return ['listen', 'stars', 'memory', 'build'];
     if (score < 55) return ['build', 'stars', 'balloon', 'sight', 'trace', 'listen'];
     return ['read', 'trace', 'balloon', 'build', 'stars'];
   }
   if (item.kind === 'word') {
-    const pic = PICTURE[item.text] ? ['picture'] : [];
-    if (score < 30) return [...pic, 'listen', 'memory', 'stars'];
-    if (score < 60) return [...pic, 'fill', 'build', 'balloon', 'listen'];
-    return ['read', 'fill', 'build', ...pic];
+    if (score < 30) return ['listen', 'memory', 'stars'];
+    if (score < 60) return ['fill', 'build', 'balloon', 'listen'];
+    return ['read', 'fill', 'build'];
   }
   return score < 40 ? ['listen', 'build'] : ['read', 'build', 'listen'];
 }
@@ -144,8 +152,8 @@ export function makeStep(p, item, activity, struggling = false) {
   const s = m(p, item.id).score;
   const n = choiceCount(s, struggling);
   const step = { itemId: item.id, activity };
-  if (['listen', 'sight', 'stars', 'picture'].includes(activity)) {
-    const k = activity === 'stars' ? Math.max(3, n) : n;
+  if (['listen', 'sight', 'stars', 'picture', 'pickpic', 'sound'].includes(activity)) {
+    const k = ['stars', 'pickpic', 'sound'].includes(activity) ? Math.max(3, n) : n;
     step.choices = shuffle([item.id, ...distractors(p, item, k - 1).map((d) => d.id)]);
   } else if (activity === 'balloon') {
     // 2–3 balloons carry the target, the rest are look-alikes
@@ -154,7 +162,12 @@ export function makeStep(p, item, activity, struggling = false) {
     step.choices = shuffle([...Array(copies).fill(item.id), ...others]);
   } else if (activity === 'memory') {
     step.pairs = [item.id, ...distractors(p, item, struggling ? 1 : 2).map((d) => d.id)];
-    step.cards = shuffle([...step.pairs, ...step.pairs]);
+    // words with pictures: one word card + one picture card per pair
+    step.cards = item.media ? shuffle(step.pairs.flatMap((id) => [`w|${id}`, `p|${id}`])) : shuffle([...step.pairs, ...step.pairs]);
+  } else if (activity === 'connect') {
+    const ids = [item.id, ...distractors(p, item, struggling || s < 20 ? 2 : 3).map((d) => d.id)];
+    step.words = shuffle(ids);
+    step.pics = shuffle(ids);
   } else if (activity === 'fill') {
     const syl = [...item.text.replace(/ /g, '')];
     const at = Math.floor(Math.random() * syl.length);

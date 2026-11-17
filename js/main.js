@@ -2,7 +2,7 @@ import { app, html, mount, on, $, $$, talk, coinPill, burst, fitStage, drawSky, 
 import { say, setVoice, sfx } from './audio.js';
 import { pick } from './lines.js';
 import { mango, ICON, STICKERS, STICKER_SETS, STICKER_BY_ID, SHOP, SHOP_BY_ID, SLOT_NAMES, shopIcon } from './art.js';
-import { UNITS, STAGE_BY_ID } from './curriculum.js';
+import { UNITS, STAGE_BY_ID, COMING, picUrl } from './curriculum.js';
 import { loadProfile, saveProfile, currentUnit, currentStage, unitProgress, stageProgress, buildLesson } from './engine.js';
 import { store } from './store.js';
 import { runLesson } from './lesson.js';
@@ -60,7 +60,8 @@ function holdToOpen(btn, fn) {
 }
 
 // ---- 태이's map --------------------------------------------------------------
-const POS = [[150, 430], [330, 300], [500, 420], [660, 280], [820, 400], [980, 270], [1120, 390], [960, 520], [760, 560]];
+// stops on 망고 섬, left to right; chapters fill them in order, the rest are "?"
+const POS = [[230, 330], [440, 200], [640, 330], [850, 210], [1030, 330]];
 
 function starsFor(share) { return share >= 0.8 ? 3 : share >= 0.5 ? 2 : share >= 0.2 ? 1 : 0; }
 const starRow = (n) => [0, 1, 2].map((k) => ICON.star(k < n ? '#FFD86B' : 'rgba(255,255,255,0.18)')).join('');
@@ -81,18 +82,27 @@ screens.map = async ({ greet = false } = {}) => {
   const p = app.profile = await loadProfile('tay');
   const cur = currentUnit(p);
   const saved = await store.get('lesson:tay');
+  const nStops = Math.min(POS.length, UNITS.length + COMING);
   let path = '';
-  for (let i = 1; i < POS.length; i++) path += `<line x1="${POS[i - 1][0]}" y1="${POS[i - 1][1] - 100}" x2="${POS[i][0]}" y2="${POS[i][1] - 100}" stroke="rgba(255,255,255,0.3)" stroke-width="4" stroke-dasharray="4 14" stroke-linecap="round"/>`;
-  const planets = UNITS.map((u, i) => {
+  for (let i = 1; i < nStops; i++) path += `<line x1="${POS[i - 1][0]}" y1="${POS[i - 1][1]}" x2="${POS[i][0]}" y2="${POS[i][1]}" stroke="rgba(255,255,255,0.45)" stroke-width="6" stroke-dasharray="4 16" stroke-linecap="round"/>`;
+  const stops = POS.slice(0, nStops).map(([x, y], i) => {
+    const u = UNITS[i];
+    if (!u) return `<div class="stop soon" style="left:${x}px;top:${y}px"><span class="badge">?</span></div>`;
     const prog = unitProgress(p, u);
-    const size = u.id === cur.id ? 132 : 104;
-    const fs = u.icon.length > 1 ? 34 : 54;
-    const visited = p.unlocked.includes(u.id);
-    return `<button class="planet-btn ${u.id === cur.id ? 'current' : ''} ${visited ? '' : 'new'}" data-unit="${u.id}" style="left:${POS[i][0]}px;top:${POS[i][1] - 100}px" aria-label="${esc(u.name)}">
-      <span class="orb" style="width:${size}px;height:${size}px;background:${u.color};--glow:${u.color}99;font-size:${fs}px">${esc(u.icon)}</span>
+    return `<button class="stop ${u.id === cur.id ? 'current' : ''}" data-unit="${u.id}" style="left:${x}px;top:${y}px;--c:${u.color}" aria-label="${esc(u.name)}">
+      <span class="badge"><img class="wpic" src="${picUrl(u.pic)}" alt=""></span>
+      <span class="name">${esc(u.name)}</span>
       <span class="stars">${starRow(starsFor(prog.share))}</span>
     </button>`;
   }).join('');
+  const island = `<svg class="island" width="1180" height="520" viewBox="0 0 1180 520" aria-hidden="true">
+    <ellipse cx="590" cy="300" rx="560" ry="190" fill="#2BB5A8" opacity="0.25"/>
+    <path d="M70 300 C120 150 330 90 590 100 C860 110 1080 160 1110 300 C1090 420 860 470 590 470 C330 470 90 430 70 300Z" fill="#3C8F4F"/>
+    <path d="M100 300 C150 170 340 120 590 128 C850 136 1050 180 1080 300 C1060 400 850 440 590 440 C340 440 120 400 100 300Z" fill="#5BBF6A"/>
+    <path d="M70 300 C90 430 330 480 590 480 C860 480 1090 430 1110 300 L1110 330 C1080 470 860 515 590 515 C330 515 100 470 70 330Z" fill="#B07A4A"/>
+    <g fill="#2E7D44"><circle cx="160" cy="250" r="28"/><circle cx="1000" cy="420" r="30"/><circle cx="560" cy="430" r="24"/><circle cx="760" cy="150" r="22"/></g>
+    <g fill="#FFD86B" opacity="0.9"><circle cx="330" cy="420" r="8"/><circle cx="920" cy="150" r="7"/><circle cx="120" cy="360" r="6"/></g>
+  </svg>`;
   const el = mount(html(`<section class="screen">
     <div class="row">
       <button class="round back" aria-label="처음으로">${ICON.back()}</button>
@@ -100,8 +110,9 @@ screens.map = async ({ greet = false } = {}) => {
       ${coinPill(p.coins)}
     </div>
     <div class="map">
+      ${island}
       <svg class="map-path" width="1200" height="560" aria-hidden="true">${path}</svg>
-      ${planets}
+      ${stops}
     </div>
     <div class="row">
       <div class="row" style="gap:6px"><button class="mango-btn" aria-label="망고 춤">${mango({ equipped: p.equipped, size: 160 })}</button>
@@ -115,14 +126,15 @@ screens.map = async ({ greet = false } = {}) => {
     </div>
   </section>`));
   const speak = $(el, '.speak');
-  const intro = saved ? pick('welcome_back') : greet ? pick('hello') : pick('map_go');
-  talk(speak, intro, greet && !saved ? pick('map_go') : null);
+  const intro = saved ? pick('welcome_back') : greet ? pick('hello') : pick('island');
+  talk(speak, intro, greet && !saved ? pick('island') : null);
   on(el, '.speak', () => talk(speak, pick('map_go')));
   on(el, '.back', () => app.go('entry'));
   on(el, '[data-go]', (b) => app.go(b.dataset.go));
   bindDance(el);
   on(el, '.go', () => { sfx('pop'); runLesson(saved || buildLesson(p, cur.id)); });
-  on(el, '.planet-btn', (b) => { sfx('pop'); say(UNITS.find((u) => u.id === b.dataset.unit).name); app.go('planet', b.dataset.unit); });
+  on(el, '.stop[data-unit]', (b) => { sfx('pop'); app.go('planet', b.dataset.unit); });
+  on(el, '.stop.soon', () => { sfx('bad'); });
 };
 
 // ---- one planet: its short stages, all open, with arrows to the next/previous planet --
@@ -138,15 +150,16 @@ screens.planet = async (unitId) => {
     const x = n === 1 ? 50 : 12 + (k * 76) / (n - 1);
     const y = k % 2 ? 330 : 200;
     const label = st.items.map((it) => it.text).join(' ');
+    const thumbs = st.items.map((it) => (it.media ? `<img src="${picUrl(it.media)}" alt="">` : '')).join('');
     return `<button class="stone ${st.id === rec.id ? 'current' : ''}" data-stage="${st.id}" style="left:${x}%;top:${y}px;--c:${u.color}" aria-label="${k + 1}단계">
-      <span class="num">${k + 1}</span>
-      <span class="peek">${esc(label)}</span>
+      <span class="num ${st.review ? 'review' : ''}">${st.review ? '모두' : k + 1}</span>
+      ${thumbs ? `<span class="thumbs">${thumbs}</span>` : `<span class="peek">${esc(label)}</span>`}
       <span class="stars">${starRow(starsFor(pr.share))}</span></button>`;
   }).join('');
   const el = mount(html(`<section class="screen">
     <div class="row">
       <button class="round back" aria-label="지도로">${ICON.back()}</button>
-      <span class="orb-mini" style="background:${u.color}">${esc(u.icon)}</span>
+      <span class="orb-mini" style="background:${u.color}">${u.pic ? `<img class="wpic" src="${picUrl(u.pic)}" alt="">` : esc(u.icon)}</span>
       <h1 class="title" style="font-size:52px">${esc(u.name)}</h1>
       <button class="speak small" aria-label="다시 듣기">${ICON.speaker()}</button>
       <div class="grow"></div>${coinPill(p.coins)}
@@ -158,8 +171,8 @@ screens.planet = async (unitId) => {
     </div>
   </section>`));
   const speak = $(el, '.speak');
-  talk(speak, pick('planet'));
-  on(el, '.speak', () => talk(speak, pick('planet')));
+  talk(speak, u.name, pick(`ch_${u.id}`), pick('planet'));
+  on(el, '.speak', () => talk(speak, pick(`ch_${u.id}`), pick('planet')));
   on(el, '.back', () => app.go('map'));
   on(el, '.prev', () => i > 0 && app.go('planet', UNITS[i - 1].id));
   on(el, '.next', () => i < UNITS.length - 1 && app.go('planet', UNITS[i + 1].id));

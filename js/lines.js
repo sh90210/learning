@@ -57,7 +57,19 @@ export const LINES = {
   chest_open: ['와, 보너스 코인이야!'],
   dance: ['망고 춤 보여 줄게!', '신난다! 같이 춤추자!'],
   best_combo: ['오늘 연속 기록 최고!'],
-  shop_tab: ['어떤 걸 구경해 볼까?']
+  shop_tab: ['어떤 걸 구경해 볼까?'],
+  // World 1: words with pictures
+  island: ['망고 섬에 온 걸 환영해! 어디부터 가 볼까?'],
+  new_word: ['새 낱말 친구가 생겼어!'],
+  meet: ['이 낱말을 읽어 볼까? 글자를 하나씩 눌러 봐!'],
+  tap_pic: ['그림을 누르면 소리가 나!'],
+  pickpic: ['이 낱말에 맞는 그림을 찾아 봐!'],
+  connect: ['낱말을 누르고, 맞는 그림을 눌러서 이어 봐!'],
+  sound_game: ['무슨 소리일까? 잘 듣고 맞는 낱말을 골라 봐!'],
+  stars_word: ['낱말 비가 내려! 소리를 듣고 맞는 낱말을 잡아 봐!'],
+  memory_word: ['카드를 뒤집어서 낱말과 그림 짝을 찾아 봐!'],
+  ch_c1: ['냠냠! 간식 시간이야! 맛있는 낱말을 만나 보자!'],
+  ch_c2: ['어흥! 동물 친구들을 만나러 가자!']
 };
 
 // Short words for interface sounds; also recorded.

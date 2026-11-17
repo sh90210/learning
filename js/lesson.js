@@ -4,7 +4,7 @@ import { app, html, mount, on, $, $$, talk, coinPill, burst, wait, esc } from '.
 import { say, sfx, stop, hasClip } from './audio.js';
 import { pick } from './lines.js';
 import { ICON, mango, STICKERS, STICKER_SETS, STICKER_BY_ID } from './art.js';
-import { ITEM_BY_ID, UNITS, PICTURE } from './curriculum.js';
+import { ITEM_BY_ID, UNITS, PICTURE, picUrl } from './curriculum.js';
 import { compose, letterSound, syllableSimilarity, decompose } from './hangul.js';
 import { m, makeStep, buildSpec, distractors, recordAnswer, markExposure, saveProfile, checkUnlocks, finishLessonDay } from './engine.js';
 import { store } from './store.js';
@@ -30,7 +30,7 @@ function prepare(step) {
   const item = ITEM_BY_ID[step.itemId];
   const struggling = L.wrongRun >= 2;
   if (step.partner && !step.choices) step.choices = [item.id, step.partner].sort(() => Math.random() - 0.5);
-  if (!step.choices && !step.build && !step.cards && !step.fill && !['intro', 'trace', 'read'].includes(step.activity)) {
+  if (!step.choices && !step.build && !step.cards && !step.fill && !step.words && !['intro', 'trace', 'read'].includes(step.activity)) {
     Object.assign(step, makeStep(p, item, step.activity, struggling), { itemId: step.itemId, activity: step.activity });
   }
   return item;
@@ -69,7 +69,7 @@ async function next() {
   const step = L.steps[L.index];
   const item = prepare(step);
   await persist();
-  const run = { intro, listen: choose, sight: choose, picture: choose, build, trace: traceStep, read: readStep, stars, balloon, memory, fill }[step.activity] || choose;
+  const run = { intro: item.media ? meet : intro, listen: choose, sight: choose, picture: choose, sound: choose, pickpic, connect, build, trace: traceStep, read: readStep, stars, balloon, memory, fill }[step.activity] || choose;
   run(step, item);
 }
 
@@ -125,6 +125,15 @@ async function finish() {
 }
 
 function sound(item) { return item.text; }
+// picture of a word (real art for World 1 words, sticker art otherwise)
+function picImg(item, cls = '') {
+  if (item.media) return `<img class="wpic ${cls}" src="${picUrl(item.media)}" alt="" draggable="false">`;
+  if (PICTURE[item.text]) return STICKER_BY_ID[PICTURE[item.text]].svg();
+  return '';
+}
+const fx = (item) => (item.media ? { sfx: item.media } : null);
+// scaffolding fades as the word is learned: low scores get pictures/sound hints
+const score = (item) => m(app.profile, item.id).score;
 
 // ---- intro: meet a new letter block ----------------------------------------------
 function intro(step, item) {
@@ -157,28 +166,32 @@ function intro(step, item) {
 // ---- listen & pick / sight match ----------------------------------------------------
 function choose(step, item) {
   const picture = step.activity === 'picture';
+  const sndGame = step.activity === 'sound';
   const listen = step.activity === 'listen';
+  const helpPic = sndGame && score(item) < 30;
   const cls = item.kind === 'syl' ? '' : item.kind === 'word' ? 'word' : 'sentence';
   const choices = step.choices.map((id, i) => {
     const it = ITEM_BY_ID[id];
     const [bg, glow] = PALETTE[i % PALETTE.length];
-    return `<button class="choice ${cls}" data-id="${esc(id)}" style="background:${bg};--glow:${glow}">${esc(it.text)}</button>`;
+    return `<button class="choice ${cls} ${helpPic ? 'with-pic' : ''}" data-id="${esc(id)}" style="background:${bg};--glow:${glow}">${helpPic ? picImg(it, 'mini') : ''}${esc(it.text)}</button>`;
   }).join('');
-  const target = listen
+  const target = sndGame ? `<button class="speak again sfxbtn" aria-label="소리 다시 듣기" style="width:190px;height:190px">${ICON.speaker()}</button>`
+    : listen
     ? `<button class="speak again" aria-label="소리 다시 듣기" style="width:170px;height:170px">${ICON.speaker()}</button>`
-    : picture ? `<div class="picframe">${STICKER_BY_ID[PICTURE[item.text]].svg()}</div>`
+    : picture ? `<button class="picframe tap-fx">${picImg(item)}</button>`
     : `<div class="tile huge" style="background:#FF8A3D;box-shadow:0 0 36px rgba(255,138,61,0.6)">${esc(item.text)}</div>`;
   const el = mount(frame(item, {
-    bubbleHint: listen ? '잘 듣고 골라 봐!' : picture ? '그림에 맞는 낱말은?' : '똑같은 글자를 찾아 봐!',
+    bubbleHint: sndGame ? '무슨 소리일까?' : listen ? '잘 듣고 골라 봐!' : picture ? '그림에 맞는 낱말은?' : '똑같은 글자를 찾아 봐!',
     body: `<div class="board" style="flex-direction:column;gap:30px">${target}</div><div class="choices">${choices}</div>`
   }));
   bindQuit(el);
   const speak = $(el, '.speak');
-  const instr = listen ? pick(item.kind === 'syl' ? 'listen' : 'listen_word') : picture ? pick('picture') : pick('sight');
-  const play = () => talk(speak, instr, listen ? sound(item) : null);
+  const instr = sndGame ? pick('sound_game') : listen ? pick(item.kind === 'syl' ? 'listen' : 'listen_word') : picture ? pick('picture') : pick('sight');
+  const play = () => talk(speak, instr, listen ? sound(item) : sndGame ? fx(item) : null);
   play();
   on(el, '.speak:not(.again)', play);
-  on(el, '.again', () => say(sound(item)));
+  on(el, '.again', () => say(sndGame ? fx(item) : sound(item)));
+  on(el, '.tap-fx', () => say(fx(item)));
   const t0 = Date.now();
   let misses = 0, firstChoice = null, locked = false;
   on(el, '.choice', async (b) => {
@@ -190,7 +203,7 @@ function choose(step, item) {
       b.classList.add('good');
       sfx('ok');
       burst($(el, '.board'));
-      await say(pick('correct'), sound(item));
+      await say(sound(item), fx(item), pick('correct'));
       done(step, item, { correct: misses === 0, ms: Date.now() - t0, chosen: misses ? firstChoice : null });
     } else {
       misses++;
@@ -291,7 +304,7 @@ function buildOrder(step, item, b) {
   const slots = b.tiles.map(() => `<div class="tile empty"></div>`).join('');
   const el = mount(frame(item, {
     bubbleHint: sentence ? '순서대로 눌러 봐!' : '글자를 순서대로 눌러 봐!',
-    body: `<div class="board" style="flex-direction:column"><button class="speak again" aria-label="소리 다시 듣기">${ICON.speaker()}</button>
+    body: `<div class="board" style="flex-direction:column">${item.media ? `<div class="row" style="gap:24px"><button class="picframe small tap-fx">${picImg(item)}</button><button class="speak again" aria-label="소리 다시 듣기">${ICON.speaker()}</button></div>` : `<button class="speak again" aria-label="소리 다시 듣기">${ICON.speaker()}</button>`}
       <div class="word-line ${sentence ? 'sentence' : ''}">${slots}</div></div><div class="choices">${opts}</div>`
   }));
   bindQuit(el);
@@ -300,6 +313,7 @@ function buildOrder(step, item, b) {
   play();
   on(el, '.speak:not(.again)', play);
   on(el, '.again', () => say(sound(item)));
+  on(el, '.tap-fx', () => say(fx(item)));
   const t0 = Date.now();
   let pos = 0, misses = 0, locked = false;
   on(el, '.choice', async (x) => {
@@ -408,20 +422,23 @@ function stars(step, item) {
   const starsHtml = step.choices.map((id, i) => {
     const [bg] = PALETTE[i % PALETTE.length];
     const delay = (i * 0.9 + Math.random() * 0.6).toFixed(2);
-    return `<button class="falling ${cls}" data-id="${esc(id)}" style="left:${8 + (i * 84) / lanes}%;animation-delay:-${delay}s;--c:${bg}">
+    return `<button class="falling ${cls}" data-id="${esc(id)}" style="left:${item.media ? 22 + (i * 66) / lanes : 8 + (i * 84) / lanes}%;animation-delay:-${delay}s;--c:${bg}">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5l2.9 6.1 6.6.8-4.9 4.5 1.3 6.6L12 17.2l-5.9 3.3 1.3-6.6-4.9-4.5 6.6-.8z" fill="${bg}"/></svg>
       <span>${esc(ITEM_BY_ID[id].text)}</span></button>`;
   }).join('');
   const el = mount(frame(item, {
-    bubbleHint: '소리를 듣고 별똥별을 잡아!',
-    body: `<div class="board sky-game">${starsHtml}<button class="speak again" aria-label="소리 다시 듣기" style="position:absolute;right:20px;bottom:20px">${ICON.speaker()}</button></div>`
+    bubbleHint: item.media ? '그림에 맞는 낱말을 잡아!' : '소리를 듣고 별똥별을 잡아!',
+    body: `<div class="board sky-game">${item.media ? `<button class="clue tap-fx">${picImg(item)}</button>` : ''}${starsHtml}<button class="speak again" aria-label="소리 다시 듣기" style="position:absolute;right:20px;bottom:20px">${ICON.speaker()}</button></div>`
   }));
   bindQuit(el);
   const speak = $(el, '.speak');
-  const play = () => talk(speak, pick('stars'), sound(item));
+  // words: the picture is the clue; the spoken word is only a helper early on
+  const helpSound = !item.media || score(item) < 40;
+  const play = () => talk(speak, pick(item.media ? 'stars_word' : 'stars'), helpSound ? sound(item) : fx(item));
   play();
   on(el, '.speak:not(.again)', play);
   on(el, '.again', () => say(sound(item)));
+  on(el, '.tap-fx', () => say(fx(item)));
   const t0 = Date.now();
   let misses = 0, first = null, locked = false;
   on(el, '.falling', async (b) => {
@@ -501,15 +518,22 @@ function balloon(step, item) {
 // ---- 짝 맞추기: memory cards; every flip says the card out loud -------------------
 function memory(step, item) {
   const cls = item.kind === 'syl' ? '' : 'word';
-  const cards = step.cards.map((id, i) => `<button class="card-flip ${cls}" data-id="${esc(id)}" data-i="${i}" aria-label="카드">
-      <span class="back">${ICON.star('#FFD86B')}</span><span class="front">${esc(ITEM_BY_ID[id].text)}</span></button>`).join('');
+  // cards are "id" (same text twice) or "w|id" / "p|id" (word card + picture card)
+  const parse = (c) => (c.includes('|') ? { kind: c[0], id: c.slice(2) } : { kind: 'w', id: c });
+  const cards = step.cards.map((c, i) => {
+    const { kind, id } = parse(c);
+    const front = kind === 'p' ? picImg(ITEM_BY_ID[id], 'card') : esc(ITEM_BY_ID[id].text);
+    return `<button class="card-flip ${cls} ${kind === 'p' ? 'pic' : ''}" data-id="${esc(id)}" data-k="${kind}" data-i="${i}" aria-label="카드">
+      <span class="back">${ICON.star('#FFD86B')}</span><span class="front">${front}</span></button>`;
+  }).join('');
+  const pictured = step.cards[0].includes('|');
   const el = mount(frame(item, {
-    bubbleHint: '똑같은 글자 짝을 찾아!',
+    bubbleHint: pictured ? '낱말과 그림 짝을 찾아!' : '똑같은 글자 짝을 찾아!',
     body: `<div class="board"><div class="cards c${step.cards.length}">${cards}</div></div>`
   }));
   bindQuit(el);
   const speak = $(el, '.speak');
-  const play = () => talk(speak, pick('memory'));
+  const play = () => talk(speak, pick(pictured ? 'memory_word' : 'memory'));
   play();
   on(el, '.speak', play);
   const t0 = Date.now();
@@ -521,13 +545,15 @@ function memory(step, item) {
     flips++;
     sfx('pop');
     open.push(c);
-    say(ITEM_BY_ID[c.dataset.id].text);
+    // a picture card plays its sound; a word card is read out only while it's new
+    const it = ITEM_BY_ID[c.dataset.id];
+    if (c.dataset.k === 'p') say(fx(it)); else if (!pictured || score(it) < 40) say(it.text);
     if (open.length < 2) return;
     busy = true;
     const [a, b] = open;
     open = [];
     await wait(700);
-    if (a.dataset.id === b.dataset.id) {
+    if (a.dataset.id === b.dataset.id && (!pictured || a.dataset.k !== b.dataset.k)) {
       a.classList.add('matched'); b.classList.add('matched');
       sfx('ok');
       matched++;
@@ -557,7 +583,7 @@ function fill(step, item) {
     const [bg, glow] = PALETTE[i % PALETTE.length];
     return `<button class="choice" data-t="${esc(t)}" style="background:${bg};--glow:${glow}">${esc(t)}</button>`;
   }).join('');
-  const pic = PICTURE[item.text] ? `<div class="picframe small">${STICKER_BY_ID[PICTURE[item.text]].svg()}</div>` : '';
+  const pic = picImg(item) ? `<button class="picframe small tap-fx">${picImg(item)}</button>` : '';
   const el = mount(frame(item, {
     bubbleHint: '빈칸에 들어갈 글자는?',
     body: `<div class="board" style="flex-direction:column;gap:20px">${pic}<div class="word-line">${word}</div>
@@ -569,6 +595,7 @@ function fill(step, item) {
   play();
   on(el, '.speak:not(.again)', play);
   on(el, '.again', () => say(sound(item)));
+  on(el, '.tap-fx', () => say(fx(item), sound(item)));
   const t0 = Date.now();
   let misses = 0, locked = false;
   on(el, '.choice', async (b) => {
@@ -592,5 +619,177 @@ function fill(step, item) {
         done(step, item, { correct: false, ms: Date.now() - t0 });
       }
     }
+  });
+}
+
+// ============ World 1: words with pictures =========================================
+
+// ---- 새 낱말 만나기: picture + sound, then the word block by block ------------------
+function meet(step, item) {
+  markExposure(app.profile, item.id);
+  const tiles = item.syls.map((c, i) => `<button class="tile syl" data-i="${i}" style="background:${PALETTE[i % PALETTE.length][0]}">${esc(c)}</button>`).join('');
+  const el = mount(frame(item, {
+    bubbleHint: '새 낱말 친구야! 글자를 하나씩 눌러 봐!',
+    body: `<div class="board meet" style="flex-direction:column;gap:22px">
+        <button class="picframe big tap-fx" aria-label="그림 소리">${picImg(item)}</button>
+        <div class="row" style="gap:18px"><div class="word-line">${tiles}</div>
+          <button class="speak again small" aria-label="낱말 듣기">${ICON.speaker()}</button></div>
+      </div>
+      <div class="center"><button class="big-btn ok">${ICON.check('#151B3D')} 알았어!</button></div>`
+  }));
+  bindQuit(el);
+  const speak = $(el, '.speak');
+  const tileEls = $$(el, '.syl');
+  let demo = true;
+  const tapped = new Set();
+  const light = (i) => { tileEls.forEach((t, k) => t.classList.toggle('lit', k === i)); };
+  // 망고 shows it once: picture sound, the word, each block, the word again
+  (async () => {
+    await talk(speak, pick('new_word'), fx(item), item.text);
+    for (let i = 0; i < item.syls.length && demo; i++) { light(i); await say(item.syls[i]); }
+    if (!demo) return;
+    light(-1);
+    tileEls.forEach((t) => t.classList.add('lit'));
+    await say(item.text);
+    tileEls.forEach((t) => t.classList.remove('lit'));
+    if (demo) await talk(speak, pick('meet'));
+  })();
+  const stopDemo = () => { demo = false; };
+  on(el, '.speak:not(.again)', () => { stopDemo(); talk(speak, pick('meet')); });
+  on(el, '.again', () => { stopDemo(); say(item.text); });
+  on(el, '.tap-fx', () => { stopDemo(); sfx('pop'); say(fx(item), item.text); });
+  on(el, '.syl', (t) => {
+    stopDemo();
+    const i = +t.dataset.i;
+    light(i);
+    sfx('pop');
+    tapped.add(i);
+    if (tapped.size === item.syls.length) {
+      $(el, '.ok').classList.add('pulse');
+      say(item.syls[i], item.text);
+    } else say(item.syls[i]);
+  });
+  on(el, '.ok', async () => {
+    stopDemo();
+    sfx('ok');
+    stop();
+    await store.addEvent({ kid: 'tay', type: 'answer', lesson: L.id, unit: item.unit, item: item.id, activity: 'intro', correct: true, weight: 0, extra: { tapped: tapped.size } });
+    L.results.push({ item: item.id, activity: 'intro', correct: true });
+    L.index++;
+    await persist();
+    next();
+  });
+}
+
+// ---- 그림 찾기: read the word, tap its picture ----------------------------------------
+function pickpic(step, item) {
+  const pics = step.choices.map((id) => `<button class="pic-choice" data-id="${esc(id)}" aria-label="그림">${picImg(ITEM_BY_ID[id])}</button>`).join('');
+  const el = mount(frame(item, {
+    bubbleHint: '낱말에 맞는 그림을 찾아!',
+    body: `<div class="board" style="flex-direction:column;gap:28px">
+        <div class="row" style="gap:20px"><div class="tile word-card">${esc(item.text)}</div>
+          <button class="speak again small" aria-label="낱말 듣기">${ICON.speaker()}</button></div>
+        <div class="pics n${step.choices.length}">${pics}</div></div>`
+  }));
+  bindQuit(el);
+  const speak = $(el, '.speak');
+  const helpSound = score(item) < 40;
+  const play = () => talk(speak, pick('pickpic'), helpSound ? sound(item) : null);
+  play();
+  on(el, '.speak:not(.again)', play);
+  on(el, '.again', () => say(sound(item)));
+  const t0 = Date.now();
+  let misses = 0, first = null, locked = false;
+  on(el, '.pic-choice', async (b) => {
+    if (locked) return;
+    const id = b.dataset.id;
+    if (first === null) first = id;
+    if (id === item.id) {
+      locked = true;
+      b.classList.add('good');
+      sfx('ok'); burst($(el, '.board'));
+      await say(fx(item), item.text, pick('correct'));
+      done(step, item, { correct: misses === 0, ms: Date.now() - t0, chosen: misses ? first : null });
+    } else {
+      misses++;
+      b.classList.add('bad');
+      sfx('bad');
+      if (misses === 1) await say(pick('wrong'), item.text);
+      else {
+        locked = true;
+        $(el, `.pic-choice[data-id="${CSS.escape(item.id)}"]`).classList.add('good');
+        await say(pick('show_answer'), fx(item), item.text);
+        done(step, item, { correct: false, ms: Date.now() - t0, chosen: first });
+      }
+    }
+  });
+}
+
+// ---- 선 잇기: tap a word, then its picture (either order) and a line joins them --------
+function connect(step, item) {
+  const words = step.words.map((id, i) => `<button class="cword" data-id="${esc(id)}" style="--c:${PALETTE[i % PALETTE.length][0]}">${esc(ITEM_BY_ID[id].text)}</button>`).join('');
+  const pics = step.pics.map((id) => `<button class="cpic" data-id="${esc(id)}" aria-label="그림">${picImg(ITEM_BY_ID[id])}</button>`).join('');
+  const el = mount(frame(item, {
+    bubbleHint: '낱말과 그림을 이어 봐!',
+    body: `<div class="board connect"><svg class="lines" aria-hidden="true"></svg>
+        <div class="col">${words}</div><div class="col">${pics}</div></div>`
+  }));
+  bindQuit(el);
+  const speak = $(el, '.speak');
+  const play = () => talk(speak, pick('connect'));
+  play();
+  on(el, '.speak', play);
+  const board = $(el, '.connect');
+  const svg = $(el, '.lines');
+  const colors = ['#FFD86B', '#5ED3C7', '#FF9AC4', '#9EC5FF'];
+  const t0 = Date.now();
+  let sel = null, misses = 0, matched = 0, first = null;
+  const total = step.words.length;
+  const center = (node, side) => {
+    const br = board.getBoundingClientRect(), r = node.getBoundingClientRect();
+    const k = board.offsetWidth / br.width; // undo the stage scaling
+    return [((side === 'right' ? r.right : r.left) - br.left) * k, ((r.top + r.bottom) / 2 - br.top) * k];
+  };
+  const select = (node) => {
+    $$(el, '.sel').forEach((n) => n.classList.remove('sel'));
+    sel = node; if (node) node.classList.add('sel');
+  };
+  async function tryPair(w, p) {
+    if (w.dataset.id === p.dataset.id) {
+      const [x1, y1] = center(w, 'right'), [x2, y2] = center(p, 'left');
+      const c = colors[matched % colors.length];
+      svg.insertAdjacentHTML('beforeend', `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${c}" stroke-width="10" stroke-linecap="round"/><circle cx="${x1}" cy="${y1}" r="10" fill="${c}"/><circle cx="${x2}" cy="${y2}" r="10" fill="${c}"/>`);
+      w.classList.add('matched'); p.classList.add('matched');
+      w.style.setProperty('--c', c);
+      select(null);
+      matched++;
+      sfx('ok');
+      const it = ITEM_BY_ID[w.dataset.id];
+      if (matched < total) { say(fx(it), it.text); return; }
+      burst(board);
+      await say(fx(it), it.text, pick('correct'));
+      done(step, item, { correct: misses <= 1, ms: Date.now() - t0, chosen: misses ? first : null, weight: 0.8, extra: { misses } });
+    } else {
+      misses++;
+      if (first === null && w.dataset.id === item.id) first = p.dataset.id;
+      [w, p].forEach((n) => { n.classList.add('bad'); setTimeout(() => n.classList.remove('bad'), 450); });
+      select(null);
+      sfx('bad');
+      say(pick('wrong'));
+    }
+  }
+  on(el, '.cword', (w) => {
+    if (w.classList.contains('matched')) return;
+    sfx('pop');
+    const it = ITEM_BY_ID[w.dataset.id];
+    if (score(it) < 40) say(it.text); // read it out while the word is still new
+    if (sel && sel.classList.contains('cpic')) return tryPair(w, sel);
+    select(w);
+  });
+  on(el, '.cpic', (p) => {
+    if (p.classList.contains('matched')) return;
+    say(fx(ITEM_BY_ID[p.dataset.id]));
+    if (sel && sel.classList.contains('cword')) return tryPair(sel, p);
+    select(p);
   });
 }

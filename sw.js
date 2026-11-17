@@ -1,6 +1,6 @@
 // Offline support: the app shell is cached on install; audio and fonts are
 // cached the first time they play. Bump VERSION when files change.
-const VERSION = 'v1.2.0';
+const VERSION = 'v2.0.0';
 const SHELL = [
   './', 'index.html', 'manifest.webmanifest', 'css/app.css',
   'js/main.js', 'js/ui.js', 'js/audio.js', 'js/lines.js', 'js/art.js', 'js/hangul.js', 'js/curriculum.js',
@@ -21,7 +21,7 @@ self.addEventListener('fetch', (e) => {
   const req = e.request;
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
-  const cacheFirst = url.pathname.includes('/audio/') && !url.pathname.endsWith('manifest.json') || url.host.includes('fonts.g');
+  const cacheFirst = (url.pathname.includes('/audio/') && !url.pathname.endsWith('manifest.json')) || url.pathname.includes('/assets/') || url.host.includes('fonts.g');
   if (cacheFirst) {
     e.respondWith(caches.open(VERSION).then(async (c) => {
       const hit = await c.match(req);
