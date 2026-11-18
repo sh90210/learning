@@ -3,6 +3,7 @@ import { app, html, mount, on, toast, esc } from './ui.js';
 import { PARTS, TOPICS, loadPlacement, resetPlacement, placementReport, rating, isRight } from './placement.js';
 import { download, today } from './report.js';
 import { grownups } from './grownups.js';
+import { CHAPTERS, SKILLS, loadMath, chapterProgress } from './theomath.js';
 
 const HOW = { head: '암산', paper: '종이', picture: '그림', guess: '추측' };
 const fmt = (q, a) => {
@@ -21,6 +22,9 @@ const correctText = (q) => (q.type === 'choice' ? q.options[q.answer] : q.type =
 export async function theoAdult() {
   const s = await loadPlacement();
   const { rows, sense } = placementReport(s);
+  const tm = await loadMath();
+  const TAGS = { lostZero: '0 하나 빠뜨림', lostZeros: '0 두 개 빠뜨림', extraZero: '0 하나 더 붙임', tensVsNumber: '\'몇 십\'을 수 전체로 답함', wrongWay: '÷10을 ×10으로 함' };
+  const slow = Object.entries(tm.facts).filter(([, r]) => r.miss || r.ms > 4000).map(([k, r]) => `${k.replace('x', '×')}${r.miss ? ` (틀림 ${r.miss})` : ''} ${(r.ms / 1000).toFixed(1)}초`);
   const answered = PARTS.reduce((n, p, i) => n + Object.keys(s.parts[i].answers).length, 0);
   const total = PARTS.reduce((n, p) => n + p.questions.length, 0);
   const tag = (r) => `<span class="rt rt-${{ '탄탄': 'good', '연습 필요': 'mid', '아직': 'low' }[r] || 'none'}">${r}</span>`;
@@ -31,6 +35,12 @@ export async function theoAdult() {
       <div class="card"><span>배치 평가 진행</span><b>${answered} / ${total}</b></div>
       <div class="card"><span>1부</span><b>${s.parts[0].done ? '완료' : '진행 중'}</b></div>
       <div class="card"><span>2부</span><b>${s.parts[1].done ? '완료' : s.parts[0].done ? '진행 중' : '1부 후'}</b></div>
+    </div>
+    <div class="box"><h2>훈련 진행 (${tm.sessions}회)</h2>
+      <table><tr><th>단원 · 기술</th><th>점수</th><th>맞음 / 틀림</th></tr>
+      ${CHAPTERS.filter((c) => !c.soon).map((c) => `<tr><td><b>${esc(c.name)}</b></td><td><b>${Math.round(chapterProgress(tm, c) * 100)}%</b></td><td></td></tr>${c.skills.map((id) => { const k = tm.skills[id]; return `<tr><td>&nbsp;&nbsp;${esc(SKILLS[id].name)}</td><td>${k ? k.score : '—'}</td><td>${k ? `${k.right} / ${k.wrong}` : '아직'}</td></tr>`; }).join('')}`).join('')}</table>
+      <p class="muted">자주 나온 실수: ${Object.entries(tm.tags).map(([k, n]) => `${TAGS[k] || k} ${n}회`).join(', ') || '아직 없음'}</p>
+      <p class="muted">느리거나 틀린 구구단: ${slow.join(', ') || '아직 없음'}</p>
     </div>
     <div class="cols">
       <div class="box"><h2>영역별 결과 (개념 · 계산)</h2>
@@ -52,8 +62,9 @@ export async function theoAdult() {
   on(el, '.close', () => app.go('entry'));
   on(el, '.tay', () => grownups());
   on(el, '.export', () => {
+    const training = tm;
     const detail = PARTS.map((p, pi) => p.questions.map((q) => ({ id: q.id, topic: q.topic, kind: q.kind, question: q.q, correct: correctText(q), answer: s.parts[pi].answers[q.id] || null, right: isRight(q, s.parts[pi].answers[q.id]) })));
-    download(`theo-placement-${today()}.json`, { kid: 'theo', type: 'math-placement', exported: new Date().toISOString(), summary: Object.fromEntries(Object.entries(rows).map(([k, r]) => [k, { concept: r.concept, skill: r.skill, skipped: r.skipped }])), selfcheck: sense.selfcheck, detail });
+    download(`theo-placement-${today()}.json`, { kid: 'theo', type: 'math-placement', exported: new Date().toISOString(), summary: Object.fromEntries(Object.entries(rows).map(([k, r]) => [k, { concept: r.concept, skill: r.skill, skipped: r.skipped }])), selfcheck: sense.selfcheck, detail, training });
     toast('결과 파일을 저장했어요.');
   });
   on(el, '.reset', async () => {

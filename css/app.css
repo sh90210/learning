@@ -449,7 +449,7 @@ svg { display: block; }
 /* Theo home + Ballon's Locker */
 .tcoin { font-family: 'Jua'; font-size: 30px; color: #fff; background: var(--glass); border: 2px solid var(--glass-line); border-radius: 999px; padding: 6px 20px; white-space: nowrap; }
 .tcoin b { color: #FFD86B; font-weight: 400; }
-.pt-home { flex: 1; display: flex; gap: 30px; align-items: center; }
+.pt-homewrap { flex: 1; display: flex; gap: 30px; align-items: center; }
 .pt-ballon { width: 300px; display: flex; flex-direction: column; align-items: center; gap: 12px; }
 .pt-bwrap { cursor: pointer; }
 .pt-right { flex: 1; display: flex; flex-direction: column; gap: 10px; }
@@ -509,3 +509,38 @@ svg { display: block; }
 .st-prev:disabled { opacity: .3; }
 .st-plus { font-family: 'Jua'; font-size: 40px; color: #FFD86B; }
 .story .center-col, .story.center-col { align-items: center; justify-content: center; gap: 24px; }
+/* 태오 training */
+.tr-chapters { flex: 1; display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; align-content: center; }
+.tr-ch { height: 250px; border-radius: 30px; background: var(--glass); border: 3px solid var(--c); display: flex; flex-direction: column; align-items: flex-start; justify-content: flex-end; gap: 4px; padding: 18px 20px; color: #fff; font-family: 'Jua'; text-align: left; position: relative; box-shadow: 0 0 22px color-mix(in srgb, var(--c) 35%, transparent); }
+.tr-ch.soon { opacity: .45; border-style: dashed; box-shadow: none; }
+.tr-icon { position: absolute; top: 14px; right: 18px; font-size: 52px; }
+.tr-n { font-size: 18px; color: var(--c); }
+.tr-name { font-size: 32px; line-height: 1.1; }
+.tr-sub { font-size: 18px; color: #B9C0E8; }
+.tr-bar { width: 100%; height: 12px; border-radius: 99px; background: rgba(255,255,255,.12); overflow: hidden; margin-top: 8px; }
+.tr-bar i { display: block; height: 100%; background: var(--c); }
+.tr-pct { font-size: 18px; color: #FFD86B; }
+.tr-check { font-family: 'Jua'; font-size: 22px; color: #B9C0E8; background: transparent; border: 2px solid rgba(255,255,255,.25); border-radius: 999px; padding: 8px 20px; }
+.tr-tag { align-self: flex-start; font-family: 'Jua'; font-size: 20px; color: #151B3D; background: #5ED3C7; border-radius: 999px; padding: 3px 14px; }
+.tr-teach { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 24px; padding: 10px 30px; }
+.tr-tpic { min-height: 220px; display: flex; align-items: center; justify-content: center; }
+.tr-tpic svg { max-width: 100%; height: auto; }
+.tr-ttext { font-family: 'Jua'; font-size: 34px; color: #fff; text-align: center; line-height: 1.4; margin: 0; max-width: 1000px; }
+.big-eq { font-family: 'Jua'; font-size: 54px; color: #FFD86B; text-align: center; line-height: 1.35; }
+.pv-move { font-family: 'Jua'; color: #fff; display: flex; flex-direction: column; gap: 6px; align-items: center; }
+.pv-row { display: grid; grid-template-columns: repeat(3, 150px); gap: 10px; text-align: center; font-size: 26px; }
+.pv-row.arrow { display: block; color: #FF9AC4; font-size: 30px; }
+.pv-h { color: #B9C0E8; }
+.pv-d { font-size: 70px; background: rgba(255,255,255,.08); border-radius: 16px; }
+.pv-d.mv { color: #FFD86B; }
+.pv-d.zero { color: #5ED3C7; }
+.pt-choices.one { grid-template-columns: 1fr; }
+.pt-dots i.miss { background: #FF6B6B; }
+.tr-fb .pt-modal { max-width: 900px; }
+.tr-fb.good .pt-modal { border-color: #4CC76B; }
+.tr-fb.bad .pt-modal { border-color: #FF9AC4; }
+.tr-tip { font-family: 'Jua'; font-size: 26px; color: #FF9AC4; margin: 0; text-align: center; }
+.tr-ans { font-family: 'Jua'; font-size: 32px; color: #fff; margin: 0; text-align: center; }
+.tr-ans b { color: #FFD86B; font-weight: 400; }
+.tr-explain { font-family: 'Jua'; font-size: 26px; color: #B9C0E8; margin: 0; text-align: center; line-height: 1.4; }
+.tr-fbpic svg { max-height: 220px; max-width: 760px; }

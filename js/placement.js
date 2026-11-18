@@ -7,6 +7,7 @@ import { sfx, stop, theoLine } from './audio.js';
 import { store } from './store.js';
 import { loadTheo, addCoins, coinChip, locker } from './locker.js';
 import { ballon, celebrate, SHOP_BY_ID } from './ballon.js';
+import { trainHome } from './theotrain.js';
 
 const KEY = 'theo:placement';
 export const TOPICS = {
@@ -169,6 +170,8 @@ export { isRight };
 export async function theoHome(quiet = false) {
   stop();
   const s = await loadPlacement();
+  // once both parts are done, 태오's home is his training
+  if (s.parts[0].done && s.parts[1].done) return trainHome(() => app.go('entry'));
   const tp = await loadTheo();
   const card = (i) => {
     const p = PARTS[i], st = s.parts[i];
@@ -180,7 +183,7 @@ export async function theoHome(quiet = false) {
   };
   const el = mount(html(`<section class="screen pt">
     <div class="row"><button class="round back" aria-label="Back">←</button><h1 class="title" style="font-size:60px;margin:0 auto">Theo's Math Check</h1>${coinChip(tp.coins)}</div>
-    <div class="pt-home">
+    <div class="pt-homewrap">
       <div class="pt-ballon"><div class="pt-bwrap">${ballon({ equipped: tp.equipped, size: 230 })}</div>
         <button class="big-btn pt-locker">Ballon's Locker</button></div>
       <div class="pt-right">
