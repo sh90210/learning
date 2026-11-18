@@ -482,3 +482,30 @@ svg { display: block; }
 .lk-hint { color: #B9C0E8; font-size: 22px; }
 .lk-buy.short { opacity: .45; }
 .pt-locker { font-size: 30px; white-space: nowrap; padding: 14px 28px; }
+/* 망고 섬 with 12 stops */
+.stop .badge { width: 108px; height: 108px; padding: 10px; position: relative; }
+.stop.current .badge { width: 128px; height: 128px; }
+.stop .name { font-size: 24px; white-space: nowrap; }
+.stop .stars svg { width: 20px; height: 20px; }
+.stop.far { opacity: 0.45; filter: grayscale(0.7) blur(0.5px); }
+.stop.far .badge::after { content: '☁️'; position: absolute; right: -14px; top: -14px; font-size: 40px; }
+.stop.soon .badge { width: 90px; height: 90px; font-size: 52px; }
+.story-stop .badge { border-radius: 26px; }
+.story-stop .book { position: absolute; right: -10px; bottom: -8px; width: 44px; height: 44px; border-radius: 50%; background: #FFD86B; display: flex; align-items: center; justify-content: center; }
+.story-stop .book svg { width: 26px; height: 26px; }
+/* stories */
+.story { color: #fff; }
+.st-title { font-family: 'Jua'; font-size: 46px; margin: 0 0 0 16px; color: #FFD86B; font-weight: 400; }
+.st-page { font-family: 'Jua'; font-size: 28px; color: #B9C0E8; }
+.st-book { flex: 1; margin: 12px 40px; background: #FFF8E7; border-radius: 40px; box-shadow: 0 10px 0 #E6D6B0, 0 0 50px rgba(255,216,107,.25); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 26px; padding: 24px; }
+.st-pics { display: flex; gap: 22px; justify-content: center; flex-wrap: wrap; }
+.st-pic { width: 300px; height: 300px; background: #FFFFFF; border-radius: 30px; padding: 10px; box-shadow: 0 4px 14px rgba(0,0,0,.12); }
+.st-pics.many .st-pic { width: 170px; height: 170px; }
+.st-line { display: flex; gap: 22px; flex-wrap: wrap; justify-content: center; }
+.st-word { font-family: 'Jua'; font-size: 84px; color: #151B3D; background: transparent; border-radius: 22px; padding: 2px 16px; border-bottom: 6px dotted rgba(21,27,61,.2); transition: background .15s, transform .15s; }
+.st-word.heard { border-bottom-color: #2BB5A8; }
+.st-word.lit { background: #FFD86B; transform: translateY(-4px); }
+.st-nav { gap: 18px; }
+.st-prev:disabled { opacity: .3; }
+.st-plus { font-family: 'Jua'; font-size: 40px; color: #FFD86B; }
+.story .center-col, .story.center-col { align-items: center; justify-content: center; gap: 24px; }

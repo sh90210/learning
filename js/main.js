@@ -2,7 +2,8 @@ import { app, html, mount, on, $, $$, talk, coinPill, burst, fitStage, drawSky, 
 import { say, setVoice, sfx, stop } from './audio.js';
 import { pick } from './lines.js';
 import { mango, ICON, STICKERS, STICKER_SETS, STICKER_BY_ID, SHOP, SHOP_BY_ID, SLOT_NAMES, shopIcon } from './art.js';
-import { UNITS, STAGE_BY_ID, COMING, picUrl } from './curriculum.js';
+import { UNITS, STAGE_BY_ID, COMING, picUrl, MAP_ORDER, STORY_BY_ID } from './curriculum.js';
+import { storyScreen } from './story.js';
 import { faceFrame, getPhoto } from './faces.js';
 import { theoHome } from './placement.js';
 import { loadProfile, saveProfile, currentUnit, currentStage, unitProgress, stageProgress, buildLesson } from './engine.js';
@@ -64,7 +65,8 @@ function holdToOpen(btn, fn) {
 
 // ---- 태이's map --------------------------------------------------------------
 // stops on 망고 섬, left to right; chapters fill them in order, the rest are "?"
-const POS = [[230, 330], [440, 200], [640, 330], [850, 210], [1030, 330]];
+// a winding path over 망고 섬: top row left→right, bottom row right→left
+const POS = [[130, 200], [320, 165], [510, 200], [700, 165], [890, 200], [1075, 175], [1080, 420], [890, 455], [700, 420], [510, 455], [320, 420], [130, 455]];
 
 function starsFor(share) { return share >= 0.8 ? 3 : share >= 0.5 ? 2 : share >= 0.2 ? 1 : 0; }
 const starRow = (n) => [0, 1, 2].map((k) => ICON.star(k < n ? '#FFD86B' : 'rgba(255,255,255,0.18)')).join('');
@@ -85,20 +87,33 @@ screens.map = async ({ greet = false } = {}) => {
   const p = app.profile = await loadProfile('tay');
   const cur = currentUnit(p);
   const saved = await store.get('lesson:tay');
-  const nStops = Math.min(POS.length, UNITS.length + COMING);
+  const nStops = Math.min(POS.length, MAP_ORDER.length + COMING);
   let path = '';
   for (let i = 1; i < nStops; i++) path += `<line x1="${POS[i - 1][0]}" y1="${POS[i - 1][1]}" x2="${POS[i][0]}" y2="${POS[i][1]}" stroke="rgba(255,255,255,0.45)" stroke-width="6" stroke-dasharray="4 16" stroke-linecap="round"/>`;
+  // the map grows with him: stops more than one past where he is are still in the clouds
+  const curIdx = MAP_ORDER.indexOf(cur.id);
+  const reach = Math.max(curIdx + 1, ...MAP_ORDER.map((id, i) => (STORY_BY_ID[id] ? (p.stories && p.stories[id] ? i + 1 : -1) : unitProgress(p, UNITS.find((u) => u.id === id)).share > 0 ? i + 1 : -1)));
   const stops = POS.slice(0, nStops).map(([x, y], i) => {
-    const u = UNITS[i];
-    if (!u) return `<div class="stop soon" style="left:${x}px;top:${y}px"><span class="badge">?</span></div>`;
+    const id = MAP_ORDER[i];
+    if (!id) return `<div class="stop soon" style="left:${x}px;top:${y}px"><span class="badge">?</span></div>`;
+    const far = i > reach ? 'far' : '';
+    const st = STORY_BY_ID[id];
+    if (st) {
+      const done = p.stories && p.stories[id];
+      return `<button class="stop story-stop ${far}" data-story="${id}" style="left:${x}px;top:${y}px;--c:${st.color}" aria-label="${esc(st.name)}">
+        <span class="badge"><img class="wpic" src="${picUrl(st.pic)}" alt=""><span class="book">${ICON.book()}</span></span>
+        <span class="name">${esc(st.name)}</span>
+        <span class="stars">${done ? starRow(3) : ''}</span></button>`;
+    }
+    const u = UNITS.find((x2) => x2.id === id);
     const prog = unitProgress(p, u);
-    return `<button class="stop ${u.id === cur.id ? 'current' : ''}" data-unit="${u.id}" style="left:${x}px;top:${y}px;--c:${u.color}" aria-label="${esc(u.name)}">
+    return `<button class="stop ${u.id === cur.id ? 'current' : ''} ${far}" data-unit="${u.id}" style="left:${x}px;top:${y}px;--c:${u.color}" aria-label="${esc(u.name)}">
       <span class="badge"><img class="wpic" src="${picUrl(u.pic)}" alt=""></span>
       <span class="name">${esc(u.name)}</span>
       <span class="stars">${starRow(starsFor(prog.share))}</span>
     </button>`;
   }).join('');
-  const island = `<svg class="island" width="1180" height="520" viewBox="0 0 1180 520" aria-hidden="true">
+  const island = `<svg class="island" width="1220" height="560" viewBox="0 0 1180 520" preserveAspectRatio="none" aria-hidden="true">
     <ellipse cx="590" cy="300" rx="560" ry="190" fill="#2BB5A8" opacity="0.25"/>
     <path d="M70 300 C120 150 330 90 590 100 C860 110 1080 160 1110 300 C1090 420 860 470 590 470 C330 470 90 430 70 300Z" fill="#3C8F4F"/>
     <path d="M100 300 C150 170 340 120 590 128 C850 136 1050 180 1080 300 C1060 400 850 440 590 440 C340 440 120 400 100 300Z" fill="#5BBF6A"/>
@@ -138,9 +153,12 @@ screens.map = async ({ greet = false } = {}) => {
   on(el, '.go', () => { sfx('pop'); runLesson(saved || buildLesson(p, cur.id)); });
   on(el, '.stop[data-unit]', (b) => { sfx('pop'); app.go('planet', b.dataset.unit); });
   on(el, '.stop.soon', () => { sfx('bad'); });
+  on(el, '.stop[data-story]', (b) => { sfx('pop'); app.go('story', b.dataset.story); });
 };
 
 // ---- one planet: its short stages, all open, with arrows to the next/previous planet --
+screens.story = (id) => storyScreen(id);
+
 screens.planet = async (unitId) => {
   const p = app.profile || (app.profile = await loadProfile('tay'));
   const i = UNITS.findIndex((u) => u.id === unitId);
