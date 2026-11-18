@@ -480,5 +480,5 @@ svg { display: block; }
 .lk-act { min-height: 84px; display: flex; align-items: center; gap: 16px; justify-content: flex-end; }
 .lk-sel { font-size: 26px; margin-right: auto; }
 .lk-hint { color: #B9C0E8; font-size: 22px; }
-.lk-buy:disabled { opacity: .45; }
+.lk-buy.short { opacity: .45; }
 .pt-locker { font-size: 30px; white-space: nowrap; padding: 14px 28px; }

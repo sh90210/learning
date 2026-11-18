@@ -3,7 +3,7 @@
 // (does he know how big an answer should be, and does he catch his own slips?).
 // No right/wrong feedback during the test. Results live in 어른용.
 import { app, html, mount, on, $, $$, esc, burst } from './ui.js';
-import { sfx, stop } from './audio.js';
+import { sfx, stop, theoLine } from './audio.js';
 import { store } from './store.js';
 import { loadTheo, addCoins, coinChip, locker } from './locker.js';
 import { ballon, celebrate, SHOP_BY_ID } from './ballon.js';
@@ -166,7 +166,7 @@ function isRight(q, a) {
 export { isRight };
 
 // ---------- screens ----------
-export async function theoHome() {
+export async function theoHome(quiet = false) {
   stop();
   const s = await loadPlacement();
   const tp = await loadTheo();
@@ -189,8 +189,9 @@ export async function theoHome() {
       </div>
     </div>
   </section>`));
-  on(el, '.back', () => app.go('entry'));
-  on(el, '.pt-locker', () => { sfx('pop'); locker(theoHome); });
+  if (!quiet) theoLine(Object.keys(s.parts[0].answers).length ? 'welcome_back' : 'welcome');
+  on(el, '.back', () => { stop(); app.go('entry'); });
+  on(el, '.pt-locker', () => { sfx('pop'); locker(() => theoHome(true)); });
   on(el, '.pt-bwrap', () => celebrate($(el, '.pt-bwrap .ballon'), SHOP_BY_ID[tp.equipped.celebrate].cel));
   on(el, '.pt-part', (b) => {
     if (b.classList.contains('locked')) { sfx('bad'); return; }
@@ -208,7 +209,8 @@ function paperScreen(i) {
     <p class="pt-lead">Use them to work things out.<br>Some questions are timed. For those, don't calculate, just guess how big the answer is.</p>
     <button class="big-btn pt-go">I'm ready!</button>
   </section>`));
-  on(el, '.pt-go', () => { sfx('ok'); runPart(i); });
+  theoLine('paper');
+  on(el, '.pt-go', () => { sfx('ok'); theoLine(i === 0 ? 'part1' : 'part2'); runPart(i); });
 }
 
 async function runPart(pi) {
@@ -260,7 +262,8 @@ async function finishPart(pi) {
   </section>`));
   burst($(el, '.screen') || el, 24);
   setTimeout(() => celebrate($(el, '.pt-bwrap .ballon'), SHOP_BY_ID[tp.equipped.celebrate].cel), 300);
-  on(el, '.pt-go', () => theoHome());
+  theoLine(pi === 0 ? 'part1_done' : 'all_done');
+  on(el, '.pt-go', () => theoHome(true));
 }
 
 // ---------- one question ----------
@@ -270,6 +273,9 @@ const keypad = (extra = '') => `<div class="pt-keys">${KEYS.map((n) => `<button 
 function showQuestion(pi, i, qs, record) {
   const q = qs[i];
   const t0 = Date.now();
+  if (q.timed) theoLine('timed');
+  else if (q.type === 'facts') theoLine('sprint');
+  else if (i === Math.floor(qs.length / 2)) theoLine('halfway');
   const top = `<div class="pt-top"><button class="round pt-home" aria-label="Save and leave">✕</button>
     <div class="pt-bar"><i style="width:${(i / qs.length) * 100}%"></i></div><span class="pt-count">${i + 1} / ${qs.length}</span></div>`;
   const pic = q.pic ? `<div class="pt-picbox">${q.pic()}</div>` : '';
@@ -299,7 +305,7 @@ function showQuestion(pi, i, qs, record) {
       <div class="pt-qside"><h2 class="pt-q">${esc(q.q)}</h2>${note}${pic}${q.timed ? `<div class="pt-timer"><i></i></div>` : ''}</div>
       <div class="pt-aside">${answerArea}<div class="pt-foot">${idk}</div></div>
     </div></section>`));
-  on(el, '.pt-home', () => { stop(); theoHome(); });
+  on(el, '.pt-home', () => { stop(); theoHome(true); });
 
   let done = false;
   const finish = async (a) => {
@@ -369,6 +375,7 @@ function selfCheck(el, q, a) {
       <div class="row center" style="gap:20px"><button class="big-btn sure">I'm sure</button><button class="big-btn alt again">Let me check again</button></div>
     </div></div>`);
     el.appendChild(ov);
+    theoLine('check');
     on(ov, '.sure', () => { ov.remove(); resolve({ ...a, sure: true }); });
     on(ov, '.again', () => {
       ov.innerHTML = `<div class="pt-modal"><h2 class="pt-h2">${esc(q.q)}</h2><p class="pt-lead">Type your new answer (or the same one).</p>
@@ -405,7 +412,7 @@ function factsSprint(q, top, record) {
       <div class="pt-fact"><span class="pt-fq"></span> = <div class="pt-field cur"></div></div>
       <div class="pt-dots">${q.facts.map(() => '<i></i>').join('')}</div></div>
       <div class="pt-aside">${keypad()}</div></div></section>`));
-  on(el, '.pt-home', () => theoHome());
+  on(el, '.pt-home', () => theoHome(true));
   const fq = $(el, '.pt-fq'), f = $(el, '.pt-field'), dots = $$(el, '.pt-dots i');
   const show = () => { fq.textContent = `${q.facts[k][0]} × ${q.facts[k][1]}`; f.textContent = ''; v = ''; t = Date.now(); };
   show();

@@ -1,6 +1,6 @@
 // 태오's coins, Ballon's outfit, and Ballon's Locker (the shop). English UI.
 import { app, html, mount, on, $, $$, esc, toast, burst } from './ui.js';
-import { sfx } from './audio.js';
+import { sfx, theoLine } from './audio.js';
 import { store } from './store.js';
 import { ballon, celebrate, SHOP, SHOP_BY_ID, TABS, DEFAULT_EQUIPPED, CEL_ICON, KITS } from './ballon.js';
 
@@ -68,7 +68,7 @@ export async function locker(back) {
     const removable = !['kit', 'hair', 'boots', 'ball', 'celebrate'].includes(trying.slot);
     box.innerHTML = `<span class="lk-sel">${esc(trying.name)}${trying.sub ? ` · ${esc(trying.sub)}` : ''}</span>
       ${owned ? (worn ? (removable ? '<button class="big-btn alt lk-off">Take off</button>' : '<span class="lk-hint">Wearing it!</span>') : '<button class="big-btn lk-wear">Wear it</button>')
-        : `<button class="big-btn lk-buy" ${p.coins < trying.price ? 'disabled' : ''}>Buy · ⚽ ${trying.price}</button>${p.coins < trying.price ? `<span class="lk-hint">Need ${trying.price - p.coins} more</span>` : ''}`}`;
+        : `<button class="big-btn lk-buy ${p.coins < trying.price ? 'short' : ''}">Buy · ⚽ ${trying.price}</button>${p.coins < trying.price ? `<span class="lk-hint">Need ${trying.price - p.coins} more</span>` : ''}`}`;
   };
   on(el, '.back', () => (back ? back() : app.go('entry')));
   on(el, '.lk-tabs button', (b) => { sfx('pop'); tab = b.dataset.tab; trying = null; preview(); grid(); });
@@ -80,12 +80,13 @@ export async function locker(back) {
     if (trying.slot === 'celebrate') celebrate($(el, '.lk-ballon .ballon'), trying.cel);
   });
   del(el, '.lk-buy', async () => {
-    if (p.coins < trying.price) return;
+    if (p.coins < trying.price) { sfx('bad'); theoLine('need_coins'); return; }
     p.coins -= trying.price;
     p.owned.push(trying.id);
     p.equipped[trying.slot] = trying.id;
     await saveTheo(p);
     sfx('coin');
+    theoLine('buy');
     burst($(el, '.lk-stage'), 18);
     toast(`You got ${trying.name}!`);
     coinsUi(); preview(); grid();
@@ -94,11 +95,13 @@ export async function locker(back) {
   del(el, '.lk-wear', async () => { p.equipped[trying.slot] = trying.id; await saveTheo(p); sfx('ok'); preview(); grid(); });
   del(el, '.lk-off', async () => { delete p.equipped[trying.slot]; await saveTheo(p); sfx('pop'); trying = null; preview(); grid(); });
   on(el, '.lk-cel', () => {
+    theoLine('goal');
     const cel = trying && trying.slot === 'celebrate' ? trying.cel : SHOP_BY_ID[p.equipped.celebrate].cel;
     celebrate($(el, '.lk-ballon .ballon'), cel);
   });
   on(el, '.lk-ballon', () => celebrate($(el, '.lk-ballon .ballon'), SHOP_BY_ID[p.equipped.celebrate].cel));
   preview();
   grid();
+  theoLine('locker');
 }
 export { KITS };

@@ -115,3 +115,10 @@ export function sfx(kind) {
     });
   } catch (e) { /* ignore */ }
 }
+
+// 태오's recorded lines (English, Nathaniel): audio/theo/<key>.mp3. Silent if missing.
+export function theoLine(key) {
+  stop();
+  const my = ++token;
+  return playClip(`audio/theo/${key}.mp3`, my);
+}
