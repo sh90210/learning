@@ -4,6 +4,7 @@ import { setVoice, say, VOICES, hasClip } from './audio.js';
 import { UNITS, ITEM_BY_ID } from './curriculum.js';
 import { loadProfile, unitProgress, currentUnit, newProfile, saveProfile } from './engine.js';
 import { store } from './store.js';
+import { theoAdult } from './theoadult.js';
 import { getPhoto, setPhoto, photoFromFile } from './faces.js';
 import { buildReport, download, today, backup, restore, lessonMinutes } from './report.js';
 
@@ -34,7 +35,7 @@ export async function grownups(tab = 'tay') {
       <h1>어른용</h1><div style="flex:1"></div>
       <button class="b close">닫기</button>
     </div>
-    <div class="seg"><button class="on">태이 · 한글</button><button class="theo">태오 · 수학 (준비 중)</button></div>
+    <div class="seg"><button class="on">태이 · 한글</button><button class="theo">태오 · 수학</button></div>
 
     <div class="cards">
       <div class="card"><span>익힌 글자 (열린 행성)</span><b>${mastered} / ${unlockedItems.length}</b></div>
@@ -93,7 +94,7 @@ export async function grownups(tab = 'tay') {
   </section>`));
 
   on(el, '.close', () => app.go('entry'));
-  on(el, '.theo', () => toast('태오의 수학은 다음 업데이트에서 만들어요.'));
+  on(el, '.theo', () => theoAdult());
   on(el, '.voice button', async (b) => {
     app.settings.voice = b.dataset.v;
     setVoice(b.dataset.v);

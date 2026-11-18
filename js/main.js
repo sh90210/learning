@@ -1,9 +1,10 @@
 import { app, html, mount, on, $, $$, talk, coinPill, burst, fitStage, drawSky, esc, wait } from './ui.js';
-import { say, setVoice, sfx } from './audio.js';
+import { say, setVoice, sfx, stop } from './audio.js';
 import { pick } from './lines.js';
 import { mango, ICON, STICKERS, STICKER_SETS, STICKER_BY_ID, SHOP, SHOP_BY_ID, SLOT_NAMES, shopIcon } from './art.js';
 import { UNITS, STAGE_BY_ID, COMING, picUrl } from './curriculum.js';
 import { faceFrame, getPhoto } from './faces.js';
+import { theoHome } from './placement.js';
 import { loadProfile, saveProfile, currentUnit, currentStage, unitProgress, stageProgress, buildLesson } from './engine.js';
 import { store } from './store.js';
 import { runLesson } from './lesson.js';
@@ -38,9 +39,9 @@ screens.entry = async () => {
         ${faceFrame('tay', photos.tay, '이')}
         <span>태이<span class="en">(Tay)</span></span><small>${ICON.star()} ${tay.coins}</small>
       </button>
-      <button class="kid locked" data-kid="theo" aria-label="태오, 곧 열려요">
+      <button class="kid" data-kid="theo" aria-label="태오">
         ${faceFrame('theo', photos.theo, '오')}
-        <span>태오<span class="en">(Theo)</span></span><small>${ICON.lock()} 곧 열려요</small>
+        <span>태오<span class="en">(Theo)</span></span><small>Math Check</small>
       </button>
     </div>
     <button class="grownup" aria-label="어른용, 2초 동안 누르세요"><span class="fill"></span>${ICON.lock()}<span style="position:relative">어른용</span></button>
@@ -49,7 +50,7 @@ screens.entry = async () => {
   talk(speak, pick('who'));
   on(el, '.speak', () => talk(speak, pick('who')));
   on(el, '[data-kid="tay"]', async () => { sfx('pop'); await say(pick('name_tay')); app.go('map', { greet: true }); });
-  on(el, '[data-kid="theo"]', () => { sfx('pop'); talk(speak, pick('name_theo'), pick('theo_soon')); });
+  on(el, '[data-kid="theo"]', () => { sfx('pop'); stop(); theoHome(); });
   holdToOpen($(el, '.grownup'), () => grownups());
 };
 
