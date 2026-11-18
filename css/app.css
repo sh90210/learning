@@ -48,7 +48,7 @@ svg { display: block; }
 .panel { background: var(--glass); border: 2px solid var(--glass-line); border-radius: 36px; }
 
 /* entry */
-.who { flex-direction: row; justify-content: center; align-items: center; gap: 120px; flex: 1; }
+.who { display: flex; flex-direction: row; justify-content: center; align-items: center; gap: 120px; flex: 1; }
 .kid { display: flex; flex-direction: column; align-items: center; gap: 12px; font-family: 'Do Hyeon'; font-size: 64px; }
 .kid .planet { width: 340px; height: 300px; }
 .kid small { font-family: 'Jua'; font-size: 30px; color: var(--gold); display: flex; gap: 8px; align-items: center; }
