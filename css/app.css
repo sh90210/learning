@@ -316,3 +316,8 @@ svg { display: block; }
 .falling.word { width: 230px; height: 120px; }
 .falling.word svg { display: none; }
 .falling.word span { font-size: 58px; padding-top: 0; background: var(--c); border-radius: 60px; box-shadow: 0 0 26px var(--c); }
+/* first screen: kids' faces */
+.who { gap: 150px; }
+.kid { font-size: 50px; gap: 6px; }
+.kid .face { width: 300px; height: 270px; }
+.kid .en { font-family: 'Jua'; font-size: 28px; color: var(--soft); margin-left: 8px; }

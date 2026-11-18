@@ -1,9 +1,10 @@
 // 어른용: progress, recordings, voice setting, report export, backup.
-import { app, html, mount, on, $, toast, esc } from './ui.js';
+import { app, html, mount, on, $, $$, toast, esc } from './ui.js';
 import { setVoice, say, VOICES, hasClip } from './audio.js';
 import { UNITS, ITEM_BY_ID } from './curriculum.js';
 import { loadProfile, unitProgress, currentUnit, newProfile, saveProfile } from './engine.js';
 import { store } from './store.js';
+import { getPhoto, setPhoto, photoFromFile } from './faces.js';
 import { buildReport, download, today, backup, restore, lessonMinutes } from './report.js';
 
 function color(score) { return score >= 70 ? '#4CC76B' : score >= 40 ? '#FFB020' : score > 0 ? '#FF7A6B' : '#E3E8F5'; }
@@ -23,6 +24,7 @@ export async function grownups(tab = 'tay') {
   const recs = (await store.allRecordings()).filter((r) => r.kid === 'tay').slice(-24).reverse();
   const persisted = navigator.storage && navigator.storage.persisted ? await navigator.storage.persisted() : false;
   const voice = app.settings.voice;
+  const photos = { tay: await getPhoto('tay'), theo: await getPhoto('theo') };
   const clipsReady = {};
   for (const v of Object.keys(VOICES)) clipsReady[v] = await hasClip('태이!', v);
   const cur = currentUnit(p);
@@ -66,6 +68,14 @@ export async function grownups(tab = 'tay') {
         <p class="muted">녹음된 목소리가 없으면 태블릿의 한국어 음성으로 읽어요.</p>
         <button class="b test">들어 보기</button>
       </div>
+      <div class="box"><h2>첫 화면 사진</h2>
+        <div style="display:flex;gap:18px;align-items:center">
+          ${['tay', 'theo'].map((k) => `<label class="b photo-pick" style="display:flex;flex-direction:column;align-items:center;gap:8px;padding:12px 16px;border-radius:12px;border:2px solid #1B2340;cursor:pointer;font-weight:700">
+            ${photos[k] ? `<img src="${photos[k]}" alt="" style="width:96px;height:96px;border-radius:50%;object-fit:cover">` : '<span style="width:96px;height:96px;border-radius:50%;background:#E6E9F7;display:block"></span>'}
+            ${k === 'tay' ? '태이' : '태오'} 사진 바꾸기<input class="photo" data-kid="${k}" type="file" accept="image/*" hidden></label>`).join('')}
+        </div>
+        <p class="muted">사진은 이 태블릿에만 저장돼요. 얼굴이 사진 가운데쯤 있으면 잘 맞아요.</p>
+      </div>
       <div class="box"><h2>진도 리포트 · 백업</h2>
         <div style="display:flex;flex-wrap:wrap;gap:10px">
           <button class="a report">진도 리포트 내보내기</button>
@@ -93,6 +103,11 @@ export async function grownups(tab = 'tay') {
   on(el, '.test', () => say('안녕, 태이야! 나는 망고야!'));
   on(el, '.report', async () => { download(`태이-진도리포트-${today()}.json`, await buildReport('tay')); toast('리포트를 다운로드했어요.'); });
   on(el, '.save', async () => { download(`태오랑태이랑-백업-${today()}.json`, await backup()); toast('백업 파일을 저장했어요.'); });
+  $$(el, '.photo').forEach((inp) => inp.addEventListener('change', async (e) => {
+    const f = e.target.files[0];
+    if (!f) return;
+    try { await setPhoto(inp.dataset.kid, await photoFromFile(f)); toast('사진을 바꿨어요.'); grownups(); } catch (err) { toast(err.message); }
+  }));
   $(el, '.load').addEventListener('change', async (e) => {
     const f = e.target.files[0];
     if (!f) return;

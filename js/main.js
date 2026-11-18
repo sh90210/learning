@@ -3,6 +3,7 @@ import { say, setVoice, sfx } from './audio.js';
 import { pick } from './lines.js';
 import { mango, ICON, STICKERS, STICKER_SETS, STICKER_BY_ID, SHOP, SHOP_BY_ID, SLOT_NAMES, shopIcon } from './art.js';
 import { UNITS, STAGE_BY_ID, COMING, picUrl } from './curriculum.js';
+import { faceFrame, getPhoto } from './faces.js';
 import { loadProfile, saveProfile, currentUnit, currentStage, unitProgress, stageProgress, buildLesson } from './engine.js';
 import { store } from './store.js';
 import { runLesson } from './lesson.js';
@@ -26,6 +27,7 @@ screens.splash = () => {
 // ---- who's learning? ---------------------------------------------------------
 screens.entry = async () => {
   const tay = await loadProfile('tay');
+  const photos = { tay: await getPhoto('tay'), theo: await getPhoto('theo') };
   const el = mount(html(`<section class="screen">
     <div class="row center" style="gap:18px">
       <h1 class="title" style="font-size:76px">태오랑 태이랑</h1>
@@ -33,12 +35,12 @@ screens.entry = async () => {
     </div>
     <div class="who">
       <button class="kid" data-kid="tay" aria-label="태이">
-        <svg class="planet" viewBox="0 0 380 320" aria-hidden="true"><ellipse cx="190" cy="165" rx="185" ry="44" fill="none" stroke="#FFD86B" stroke-width="10" opacity="0.55"/><circle cx="190" cy="150" r="130" fill="#FF8A3D"/><circle cx="140" cy="100" r="22" fill="#FFB37A"/><circle cx="240" cy="210" r="16" fill="#E86A1E"/><path d="M8 165 A185 44 0 0 0 372 165" fill="none" stroke="#FFD86B" stroke-width="10"/><text x="190" y="192" text-anchor="middle" font-family="Jua" font-size="120" fill="#FFFFFF">가</text></svg>
-        <span>태이</span><small>${ICON.star()} ${tay.coins}</small>
+        ${faceFrame('tay', photos.tay, '이')}
+        <span>태이<span class="en">(Tay)</span></span><small>${ICON.star()} ${tay.coins}</small>
       </button>
       <button class="kid locked" data-kid="theo" aria-label="태오, 곧 열려요">
-        <svg class="planet" viewBox="0 0 320 320" aria-hidden="true"><circle cx="160" cy="150" r="130" fill="#2BB5A8" opacity="0.6"/><circle cx="110" cy="110" r="20" fill="#5ED3C7" opacity="0.6"/><text x="160" y="182" text-anchor="middle" font-family="Jua" font-size="90" fill="#FFFFFF" opacity="0.85">1+2</text></svg>
-        <span>태오</span><small>${ICON.lock()} 곧 열려요</small>
+        ${faceFrame('theo', photos.theo, '오')}
+        <span>태오<span class="en">(Theo)</span></span><small>${ICON.lock()} 곧 열려요</small>
       </button>
     </div>
     <button class="grownup" aria-label="어른용, 2초 동안 누르세요"><span class="fill"></span>${ICON.lock()}<span style="position:relative">어른용</span></button>
