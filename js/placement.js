@@ -5,6 +5,8 @@
 import { app, html, mount, on, $, $$, esc, burst } from './ui.js';
 import { sfx, stop } from './audio.js';
 import { store } from './store.js';
+import { loadTheo, addCoins, coinChip, locker } from './locker.js';
+import { ballon, celebrate, SHOP_BY_ID } from './ballon.js';
 
 const KEY = 'theo:placement';
 export const TOPICS = {
@@ -167,6 +169,7 @@ export { isRight };
 export async function theoHome() {
   stop();
   const s = await loadPlacement();
+  const tp = await loadTheo();
   const card = (i) => {
     const p = PARTS[i], st = s.parts[i];
     const n = Object.keys(st.answers).length, total = p.questions.length;
@@ -176,11 +179,19 @@ export async function theoHome() {
       <span class="pt-num">${i + 1}</span><span class="pt-ptitle">${esc(p.title.split(' · ')[1])}</span><span class="pt-status">${locked ? 'After Part 1' : status}</span></button>`;
   };
   const el = mount(html(`<section class="screen pt">
-    <div class="row"><button class="round back" aria-label="Back">←</button><h1 class="title" style="font-size:60px;margin:0 auto">Theo's Math Check</h1><span style="width:72px"></span></div>
-    <p class="pt-lead">Let's see what you already know! There are two parts. Do your best,<br>and it's OK to say "I don't know."</p>
-    <div class="pt-parts">${card(0)}${card(1)}</div>
+    <div class="row"><button class="round back" aria-label="Back">←</button><h1 class="title" style="font-size:60px;margin:0 auto">Theo's Math Check</h1>${coinChip(tp.coins)}</div>
+    <div class="pt-home">
+      <div class="pt-ballon"><div class="pt-bwrap">${ballon({ equipped: tp.equipped, size: 230 })}</div>
+        <button class="big-btn pt-locker">Ballon's Locker</button></div>
+      <div class="pt-right">
+        <p class="pt-lead">Let's see what you already know! There are two parts.<br>Do your best, and it's OK to say "I don't know."<br><b class="pt-earn">Every answer earns ⚽ 5. Finishing a part earns ⚽ 50!</b></p>
+        <div class="pt-parts">${card(0)}${card(1)}</div>
+      </div>
+    </div>
   </section>`));
   on(el, '.back', () => app.go('entry'));
+  on(el, '.pt-locker', () => { sfx('pop'); locker(theoHome); });
+  on(el, '.pt-bwrap', () => celebrate($(el, '.pt-bwrap .ballon'), SHOP_BY_ID[tp.equipped.celebrate].cel));
   on(el, '.pt-part', (b) => {
     if (b.classList.contains('locked')) { sfx('bad'); return; }
     const i = +b.dataset.part;
@@ -212,6 +223,7 @@ async function runPart(pi) {
 
   async function record(q, a) {
     a.at = Date.now();
+    if (!a.skipped) await addCoins(5);
     st.answers[q.id] = a;
     if (q.group) missStreak[q.group] = isRight(q, a) ? 0 : (missStreak[q.group] || 0) + 1;
     await savePlacement(s);
@@ -228,6 +240,7 @@ async function runPart(pi) {
     if (idx >= qs.length) {
       st.done = true;
       await savePlacement(s);
+      await addCoins(50);
       return finishPart(pi);
     }
     showQuestion(pi, idx, qs, record);
@@ -235,14 +248,18 @@ async function runPart(pi) {
   next();
 }
 
-function finishPart(pi) {
+async function finishPart(pi) {
   sfx('star');
+  const tp = await loadTheo();
   const el = mount(html(`<section class="screen pt center-col">
-    <h1 class="title" style="font-size:80px">Great work, Theo! 🚀</h1>
+    <div class="pt-bwrap">${ballon({ equipped: tp.equipped, size: 200 })}</div>
+    <h1 class="title" style="font-size:72px">Great work, Theo! 🚀</h1>
+    <p class="pt-lead">${coinChip(tp.coins)}</p>
     <p class="pt-lead">${pi === 0 ? 'Part 1 is done. Take a break, and do Part 2 later.' : 'You finished the whole Math Check! Thank you!'}</p>
     <button class="big-btn pt-go">OK</button>
   </section>`));
   burst($(el, '.screen') || el, 24);
+  setTimeout(() => celebrate($(el, '.pt-bwrap .ballon'), SHOP_BY_ID[tp.equipped.celebrate].cel), 300);
   on(el, '.pt-go', () => theoHome());
 }
 

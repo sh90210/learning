@@ -1,10 +1,10 @@
 // Offline support: the app shell is cached on install; audio and fonts are
 // cached the first time they play. Bump VERSION when files change.
-const VERSION = 'v2.2.0';
+const VERSION = 'v2.3.0';
 const SHELL = [
   './', 'index.html', 'manifest.webmanifest', 'css/app.css',
   'js/main.js', 'js/ui.js', 'js/audio.js', 'js/lines.js', 'js/art.js', 'js/hangul.js', 'js/curriculum.js',
-  'js/engine.js', 'js/store.js', 'js/lesson.js', 'js/trace.js', 'js/read.js', 'js/grownups.js', 'js/report.js', 'js/faces.js', 'js/placement.js', 'js/theoadult.js',
+  'js/engine.js', 'js/store.js', 'js/lesson.js', 'js/trace.js', 'js/read.js', 'js/grownups.js', 'js/report.js', 'js/faces.js', 'js/placement.js', 'js/theoadult.js', 'js/ballon.js', 'js/locker.js',
   'icons/icon-192.png', 'icons/icon-512.png',
   'audio/playful/manifest.json', 'audio/female/manifest.json', 'audio/male/manifest.json'
 ];

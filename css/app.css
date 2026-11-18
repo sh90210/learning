@@ -394,3 +394,91 @@ svg { display: block; }
 .adult .rt-good { background: #D7F5DE; color: #1C7A36; }
 .adult .rt-mid { background: #FFF1C7; color: #8A6400; }
 .adult .rt-low { background: #FFE0E0; color: #A52A2A; }
+
+/* ===== Ballon (태오's soccer player) ===== */
+.ballon { overflow: visible; }
+.ballon .b-arm { transform-box: view-box; transform-origin: 0 0; transition: transform .25s ease; }
+.ballon .b-arm-L { transform: rotate(14deg); }
+.ballon .b-arm-R { transform: rotate(-14deg); }
+.ballon .b-body { transform-box: view-box; transform-origin: 100px 250px; animation: b-breathe 2.6s ease-in-out infinite; }
+.ballon .b-eyes-shut, .ballon .b-yell, .ballon .b-oo, .ballon .b-camera { display: none; }
+.ballon .b-flame { animation: b-flick .5s ease-in-out infinite alternate; transform-box: fill-box; transform-origin: center bottom; }
+.ballon .b-twinkle > * { animation: b-tw 1.4s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+.ballon .b-confetti rect { animation: b-fall 2.4s linear infinite; }
+.ballon .b-ball { transform-box: fill-box; transform-origin: center; }
+@keyframes b-breathe { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
+@keyframes b-flick { from { transform: scaleY(1); } to { transform: scaleY(1.12); } }
+@keyframes b-tw { 0%, 100% { opacity: .3; } 50% { opacity: 1; } }
+@keyframes b-fall { from { transform: translateY(-40px); opacity: 0; } 20% { opacity: 1; } to { transform: translateY(60px); opacity: 0; } }
+/* celebrations */
+.ballon.cel-fist .b-arm-R { transform: rotate(-165deg); }
+.ballon.cel-fist .b-body { animation: b-hop .4s ease-in-out 4; }
+.ballon.cel-fist .b-smile { display: none; } .ballon.cel-fist .b-yell { display: block; }
+@keyframes b-hop { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-14px); } }
+.ballon.cel-siuuu .b-body { animation: b-siuuu 2.2s ease-in-out; }
+.ballon.cel-siuuu .b-arm-L { transform: rotate(60deg); } .ballon.cel-siuuu .b-arm-R { transform: rotate(-60deg); }
+.ballon.cel-siuuu .b-smile { display: none; } .ballon.cel-siuuu .b-yell { display: block; }
+@keyframes b-siuuu { 0% { transform: translateY(0) scaleX(1); } 15% { transform: translateY(-50px) scaleX(-1); } 30% { transform: translateY(-60px) scaleX(1); } 45% { transform: translateY(-40px) scaleX(-1); } 60% { transform: translateY(6px) scaleX(1) scaleY(.92); } 70%, 100% { transform: translateY(0) scaleX(1); } }
+.ballon.cel-camera .b-arm-L { transform: rotate(150deg); } .ballon.cel-camera .b-arm-R { transform: rotate(-150deg); }
+.ballon.cel-camera .b-camera { display: block; animation: b-snap .8s steps(1) 3; }
+.ballon.cel-camera .b-eyes-open { display: none; } .ballon.cel-camera .b-eyes-shut { display: block; }
+@keyframes b-snap { 0% { opacity: 1; } 50% { opacity: .2; } }
+.ballon.cel-zen .b-arm-L { transform: rotate(58deg); } .ballon.cel-zen .b-arm-R { transform: rotate(-58deg); }
+.ballon.cel-zen .b-eyes-open { display: none; } .ballon.cel-zen .b-eyes-shut { display: block; }
+.ballon.cel-zen .b-body { animation: b-float 1.5s ease-in-out 2; filter: drop-shadow(0 0 12px #9EC5FF); }
+@keyframes b-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-24px); } }
+.ballon.cel-airplane .b-arm-L { transform: rotate(92deg); } .ballon.cel-airplane .b-arm-R { transform: rotate(-92deg); }
+.ballon.cel-airplane .b-body { animation: b-plane 2.6s ease-in-out; }
+@keyframes b-plane { 0%, 100% { transform: translateX(0) rotate(0); } 25% { transform: translateX(-30px) rotate(-12deg); } 50% { transform: translateX(30px) rotate(12deg); } 75% { transform: translateX(-20px) rotate(-8deg); } }
+.ballon.cel-slide .b-arm-L { transform: rotate(160deg); } .ballon.cel-slide .b-arm-R { transform: rotate(-160deg); }
+.ballon.cel-slide .b-body { animation: b-slide 2.2s ease-out; }
+.ballon.cel-slide .b-smile { display: none; } .ballon.cel-slide .b-yell { display: block; }
+@keyframes b-slide { 0% { transform: translateX(-60px); } 20% { transform: translateX(-40px) translateY(20px) rotate(-14deg); } 70% { transform: translateX(40px) translateY(20px) rotate(-14deg); } 100% { transform: translateX(0); } }
+.ballon.cel-backflip .b-body { animation: b-flip 1.8s ease-in-out; transform-origin: 100px 140px; }
+.ballon.cel-backflip .b-arm-L { transform: rotate(150deg); } .ballon.cel-backflip .b-arm-R { transform: rotate(-150deg); }
+@keyframes b-flip { 0% { transform: translateY(0) rotate(0); } 20% { transform: translateY(10px) rotate(0); } 60% { transform: translateY(-70px) rotate(-360deg); } 80% { transform: translateY(0) rotate(-360deg); } 100% { transform: rotate(-360deg); } }
+.ballon.cel-samba .b-body { animation: b-samba .5s ease-in-out 5; }
+.ballon.cel-samba .b-arm-L { animation: b-armL .5s ease-in-out 5; } .ballon.cel-samba .b-arm-R { animation: b-armR .5s ease-in-out 5; }
+@keyframes b-samba { 0%, 100% { transform: translateX(-8px) rotate(-5deg); } 50% { transform: translateX(8px) rotate(5deg); } }
+@keyframes b-armL { 0%, 100% { transform: rotate(150deg); } 50% { transform: rotate(40deg); } }
+@keyframes b-armR { 0%, 100% { transform: rotate(-40deg); } 50% { transform: rotate(-150deg); } }
+.ballon.cel-shush .b-arm-R { transform: rotate(118deg); }
+.ballon.cel-shush .b-smile { display: none; } .ballon.cel-shush .b-oo { display: block; }
+.ballon.cel-shush .b-body { animation: b-lean 2.2s ease-in-out; }
+@keyframes b-lean { 0%, 100% { transform: rotate(0); } 30%, 70% { transform: rotate(-6deg); } }
+/* Theo home + Ballon's Locker */
+.tcoin { font-family: 'Jua'; font-size: 30px; color: #fff; background: var(--glass); border: 2px solid var(--glass-line); border-radius: 999px; padding: 6px 20px; white-space: nowrap; }
+.tcoin b { color: #FFD86B; font-weight: 400; }
+.pt-home { flex: 1; display: flex; gap: 30px; align-items: center; }
+.pt-ballon { width: 300px; display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.pt-bwrap { cursor: pointer; }
+.pt-right { flex: 1; display: flex; flex-direction: column; gap: 10px; }
+.pt-right .pt-parts { margin-top: 10px; gap: 24px; }
+.pt-right .pt-part { width: 380px; height: 260px; }
+.pt-earn { color: #FFD86B; font-weight: 400; font-size: 24px; }
+.locker { font-family: 'Jua'; color: #fff; }
+.lk-main { flex: 1; display: flex; gap: 24px; min-height: 0; padding-top: 10px; }
+.lk-stage { width: 380px; border-radius: 32px; background: linear-gradient(#1F7A3E, #186832); border: 4px solid rgba(255,255,255,.5); position: relative; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; padding-bottom: 20px; overflow: hidden; }
+.lk-pitch { position: absolute; inset: 0; background: repeating-linear-gradient(90deg, rgba(255,255,255,.05) 0 40px, transparent 40px 80px); }
+.lk-pitch::after { content: ''; position: absolute; left: 50%; top: 40%; width: 200px; height: 200px; margin: -100px 0 0 -100px; border: 4px solid rgba(255,255,255,.35); border-radius: 50%; }
+.lk-ballon { position: relative; flex: 1; display: flex; align-items: center; cursor: pointer; }
+.lk-cel { position: relative; }
+.lk-shop { flex: 1; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.lk-tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+.lk-tabs button { font-family: 'Jua'; font-size: 20px; padding: 8px 14px; border-radius: 999px; background: rgba(255,255,255,.08); color: #B9C0E8; }
+.lk-tabs button.on { background: #2BB5A8; color: #0E2A33; }
+.lk-grid { flex: 1; display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; overflow-y: auto; align-content: start; padding: 4px; }
+.lk-card { background: rgba(255,255,255,.08); border: 3px solid rgba(255,255,255,.12); border-radius: 20px; padding: 6px 4px 8px; display: flex; flex-direction: column; align-items: center; gap: 2px; color: #fff; font-family: 'Jua'; }
+.lk-card.sel { border-color: #FFD86B; background: rgba(255,216,107,.12); }
+.lk-card.worn { border-color: #2BB5A8; }
+.lk-pic { height: 112px; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+.lk-pic .ballon { width: 86px; height: 112px; }
+.lk-emoji { font-size: 60px; }
+.lk-name { font-size: 19px; text-align: center; line-height: 1.1; }
+.lk-sub { font-size: 14px; color: #B9C0E8; }
+.lk-price { font-size: 17px; color: #FFD86B; }
+.lk-act { min-height: 84px; display: flex; align-items: center; gap: 16px; justify-content: flex-end; }
+.lk-sel { font-size: 26px; margin-right: auto; }
+.lk-hint { color: #B9C0E8; font-size: 22px; }
+.lk-buy:disabled { opacity: .45; }
+.pt-locker { font-size: 30px; white-space: nowrap; padding: 14px 28px; }
