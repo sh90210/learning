@@ -23,7 +23,7 @@ export async function theoAdult() {
   const s = await loadPlacement();
   const { rows, sense } = placementReport(s);
   const tm = await loadMath();
-  const TAGS = { lostZero: '0 하나 빠뜨림', lostZeros: '0 두 개 빠뜨림', extraZero: '0 하나 더 붙임', tensVsNumber: '\'몇 십\'을 수 전체로 답함', wrongWay: '÷10을 ×10으로 함' };
+  const TAGS = { lostZero: '0 하나 빠뜨림', lostZeros: '0 두 개 빠뜨림', extraZero: '0 하나 더 붙임', tensVsNumber: '\'몇 십\'을 수 전체로 답함', wrongWay: '÷10을 ×10으로 함', partMissing: '부분 하나만 계산', carry: '받아올림 실수', wholeNotPart: '부분 대신 전체 수를 곱함', rowZero: '둘째 줄 끝 0 빠뜨림', qIsMultiple: '몫 대신 곱한 값을 답함', noRoundUp: '나머지 처리 안 함 (올려야 함)', roundedUp: '나머지를 올려버림 (버려야 함)', onlyUnit: '단위분수 하나만 구함' };
   const slow = Object.entries(tm.facts).filter(([, r]) => r.miss || r.ms > 4000).map(([k, r]) => `${k.replace('x', '×')}${r.miss ? ` (틀림 ${r.miss})` : ''} ${(r.ms / 1000).toFixed(1)}초`);
   const answered = PARTS.reduce((n, p, i) => n + Object.keys(s.parts[i].answers).length, 0);
   const total = PARTS.reduce((n, p) => n + p.questions.length, 0);

@@ -3,6 +3,7 @@
 // Each generator returns { skill, kind, type, q, note?, pic?, answer, options?, fields?, timed?,
 // max?/ok? (number line), explain, tag(value) -> likely mistake or null }.
 import { store } from './store.js';
+import { SKILLS2, CHAPTERS2, TEACH2 } from './theomath2.js';
 
 const KEY = 'theo:math';
 const R = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
@@ -61,9 +62,7 @@ export function numberLine(lo, hi, step, mark, labelEvery = step) {
 export const CHAPTERS = [
   { id: 'pot', name: 'Power of Ten', sub: 'Why the zeros are there', color: '#2BB5A8', icon: '🔟', skills: ['x10', 'tens', 'hund', 'tt', 'pattern', 'zfix'] },
   { id: 'bp', name: 'Ballpark', sub: 'How big should it be?', color: '#FF9AC4', icon: '🎯', skills: ['r10', 'r100', 'est', 'digits', 'reason', 'line'] },
-  { id: 'bia', name: 'Break It Apart', sub: 'Coming soon', color: '#9EC5FF', icon: '🧩', soon: true },
-  { id: 'check', name: 'Check Like a Pro', sub: 'Coming soon', color: '#FFD86B', icon: '🔍', soon: true },
-  { id: 'div1', name: 'Divide and Conquer', sub: 'Coming soon', color: '#B48CFF', icon: '➗', soon: true }
+  ...CHAPTERS2
 ];
 
 export const SKILLS = {
@@ -159,6 +158,9 @@ export const TEACH = {
   reason: [{ text: 'Always ask: is my answer about the right size? Round, multiply, and compare.', pic: () => '<div class="big-eq">46 × 31 ≈ 50 × 30 = 1,500<br>1,426 ✅ &nbsp; 142 ❌</div>' }]
 };
 
+Object.assign(SKILLS, SKILLS2);
+Object.assign(TEACH, TEACH2);
+
 // ---------- progress ----------
 export async function loadMath() {
   return (await store.get(KEY)) || { skills: {}, tags: {}, facts: {}, sessions: 0, history: [] };
@@ -218,19 +220,22 @@ export function buildSession(m, chId) {
   const ch = CHAPTERS.find((c) => c.id === chId);
   const open = openSkills(m, ch);
   const newest = open[open.length - 1];
-  const steps = [{ type: 'warmup', facts: warmupFacts(m) }];
+  const steps = [{ type: 'warmup', facts: warmupFacts(m) }, { type: 'q', skill: 'mental' }];
   const plan = [];
   for (let i = 0; i < 7; i++) {
     const weak = open.filter((id) => sk(m, id).score < 70);
     const id = i % 3 === 0 ? newest : Math.random() < 0.6 && weak.length ? pickOne(weak) : pickOne(open);
     plan.push(id);
   }
-  // keep earlier chapters fresh: one review question from Power of Ten during Ballpark
-  if (chId === 'bp') plan[5] = pickOne(['tens', 'tt', 'zfix']);
+  // keep earlier chapters fresh: one review question from a skill he has already practised
+  const idx = CHAPTERS.indexOf(ch);
+  const earlier = CHAPTERS.slice(0, idx).flatMap((c) => c.skills || []);
+  const practised = earlier.filter((id) => sk(m, id).seen > 0);
+  if (earlier.length) plan[5] = pickOne(practised.length ? practised : earlier.slice(0, 3));
   const taughtNow = new Set();
   for (const id of plan) {
     const s = sk(m, id), t = SKILLS[id].teach;
-    if (t && !s.taught && !taughtNow.has(t)) { steps.push({ type: 'teach', teach: t, skill: id }); taughtNow.add(t); }
+    if (t && !s.taught && !taughtNow.has(t) && ch.skills.includes(id)) { steps.push({ type: 'teach', teach: t, skill: id }); taughtNow.add(t); }
     steps.push({ type: 'q', skill: id });
   }
   return { chId, steps, i: 0, results: [], coins: 0, retries: 0 };

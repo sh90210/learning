@@ -510,12 +510,12 @@ svg { display: block; }
 .st-plus { font-family: 'Jua'; font-size: 40px; color: #FFD86B; }
 .story .center-col, .story.center-col { align-items: center; justify-content: center; gap: 24px; }
 /* 태오 training */
-.tr-chapters { flex: 1; display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; align-content: center; }
-.tr-ch { height: 250px; border-radius: 30px; background: var(--glass); border: 3px solid var(--c); display: flex; flex-direction: column; align-items: flex-start; justify-content: flex-end; gap: 4px; padding: 18px 20px; color: #fff; font-family: 'Jua'; text-align: left; position: relative; box-shadow: 0 0 22px color-mix(in srgb, var(--c) 35%, transparent); }
+.tr-chapters { flex: 1; display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; align-content: center; }
+.tr-ch { height: 262px; border-radius: 28px; background: var(--glass); border: 3px solid var(--c); display: flex; flex-direction: column; align-items: flex-start; justify-content: flex-end; gap: 4px; padding: 18px 20px; color: #fff; font-family: 'Jua'; text-align: left; position: relative; box-shadow: 0 0 22px color-mix(in srgb, var(--c) 35%, transparent); }
 .tr-ch.soon { opacity: .45; border-style: dashed; box-shadow: none; }
-.tr-icon { position: absolute; top: 14px; right: 18px; font-size: 52px; }
+.tr-icon { position: absolute; top: 12px; right: 14px; font-size: 40px; }
 .tr-n { font-size: 18px; color: var(--c); }
-.tr-name { font-size: 32px; line-height: 1.1; }
+.tr-name { font-size: 28px; line-height: 1.1; }
 .tr-sub { font-size: 18px; color: #B9C0E8; }
 .tr-bar { width: 100%; height: 12px; border-radius: 99px; background: rgba(255,255,255,.12); overflow: hidden; margin-top: 8px; }
 .tr-bar i { display: block; height: 100%; background: var(--c); }

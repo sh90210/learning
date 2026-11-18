@@ -14,7 +14,15 @@ const TAG_TIP = {
   lostZeros: 'Two zeros went missing. Tens × tens makes hundreds!',
   extraZero: 'One zero too many. Check what each number really is.',
   tensVsNumber: 'Close! The question asks how many tens, not the whole number.',
-  wrongWay: '÷ 10 makes a number smaller, not bigger.'
+  wrongWay: '÷ 10 makes a number smaller, not bigger.',
+  partMissing: 'You only counted one part. Add both parts together!',
+  carry: 'So close! Check your carrying.',
+  wholeNotPart: 'Careful: multiply the part, not the whole number. Each box is one small multiplication.',
+  rowZero: 'The second row is × tens, so it must end in 0!',
+  qIsMultiple: 'The answer is how many groups, not how many you used up.',
+  noRoundUp: 'The leftover kids need a car too!',
+  roundedUp: 'Only full boxes count. The leftovers can\u2019t fill one.',
+  onlyUnit: 'That\u2019s one group. How many groups does the fraction ask for?'
 };
 
 // ---------- home ----------
@@ -135,8 +143,8 @@ function question(S, m, st, done) {
   else if (q.type === 'multi') area = `<div class="pt-multi">${q.fields.map((f, k) => `<label><span>${esc(f)}</span><div class="pt-field ${k === 0 ? 'cur' : ''}" data-f="${k}"></div></label>`).join('')}</div>${keypad()}`;
   else if (q.type === 'line') area = `<div class="pt-line"><svg viewBox="0 0 1000 120" width="1000" height="120">
       <line x1="40" y1="60" x2="960" y2="60" stroke="#fff" stroke-width="5"/>
-      ${Array.from({ length: 11 }, (_, k) => `<line x1="${40 + k * 92}" y1="${k % 5 ? 48 : 40}" x2="${40 + k * 92}" y2="${k % 5 ? 72 : 80}" stroke="#fff" stroke-width="4"/>`).join('')}
-      ${[0, q.max / 2, q.max].map((v, k) => `<text x="${40 + k * 460}" y="112" text-anchor="middle" fill="#FFD86B" font-size="30" font-family="Jua">${fmt(v)}</text>`).join('')}
+      ${(q.ticks === 0 ? [0, 10] : Array.from({ length: 11 }, (_, k) => k)).map((k) => `<line x1="${40 + k * 92}" y1="${k % 5 ? 48 : 40}" x2="${40 + k * 92}" y2="${k % 5 ? 72 : 80}" stroke="#fff" stroke-width="4"/>`).join('')}
+      ${(q.labels || [0, q.max / 2, q.max].map(fmt)).map((v, k) => `<text x="${40 + k * 460}" y="112" text-anchor="middle" fill="#FFD86B" font-size="30" font-family="Jua">${v}</text>`).join('')}
       <circle class="pt-marker" cx="-50" cy="60" r="16" fill="#FF9AC4"/><circle class="pt-true" cx="-50" cy="60" r="12" fill="#5ED3C7"/></svg></div>
       <div class="center"><button class="big-btn pt-lineok" disabled>That's my answer</button></div>`;
   const keys = q.type === 'num' || q.type === 'multi';
@@ -211,17 +219,21 @@ function question(S, m, st, done) {
 }
 
 function answerText(q) {
-  if (q.type === 'choice') return q.options[q.answer];
-  if (q.type === 'multi') return q.fields.map((f, i) => `${f} ${fmt(q.answer[i])}`).join('   ');
-  if (q.type === 'line') return `${fmt(q.answer)} (the green dot)`;
-  return fmt(q.answer);
+  if (q.type === 'choice') return esc(q.options[q.answer]);
+  if (q.type === 'multi') {
+    const parts = q.fields.map((f, i) => `${esc(f)} ${esc(fmt(q.answer[i]))}`);
+    return q.fields.some((f) => /=\s*$/.test(f)) ? '<br>' + parts.join('<br>') : parts.join(', ');
+  }
+  if (q.ansText) return esc(q.ansText);
+  if (q.type === 'line') return q.labels ? 'the green dot' : `${fmt(q.answer)} (the green dot)`;
+  return esc(fmt(q.answer));
 }
 
 function feedback(el, q, ok, v, mistake, done) {
   const ov = html(`<div class="pt-overlay tr-fb ${ok ? 'good' : 'bad'}"><div class="pt-modal">
     <h2 class="pt-h2">${ok ? `✅ ${PRAISE[Math.floor(Math.random() * PRAISE.length)]}` : v == null ? '⏰ Time’s up!' : '❌ Not quite'}</h2>
     ${ok ? `<p class="pt-lead">+⚽ ${COIN_RIGHT}</p>` : `${mistake && TAG_TIP[mistake] ? `<p class="tr-tip">${esc(TAG_TIP[mistake])}</p>` : ''}
-      <p class="tr-ans">Answer: <b>${esc(answerText(q))}</b></p>
+      <p class="tr-ans">Answer: <b>${answerText(q)}</b></p>
       ${q.picAfter ? `<div class="tr-fbpic">${q.picAfter}</div>` : ''}
       <p class="tr-explain">${esc(q.explain)}</p>`}
     <button class="big-btn tr-go">${ok ? 'Next' : 'Got it'}</button></div></div>`);
