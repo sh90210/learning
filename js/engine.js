@@ -1,7 +1,7 @@
 // The adaptive part: mastery scores, spaced review, mix-up drills, and the
 // lesson builder. Everything here is plain data so a progress report can be
 // exported and the rules tuned later.
-import { UNITS, ITEM_BY_ID, STAGE_BY_ID, PICTURE } from './curriculum.js';
+import { UNITS, ITEM_BY_ID, STAGE_BY_ID, PICTURE, MAP_ORDER, STORY_BY_ID } from './curriculum.js';
 import { syllableSimilarity, decompose } from './hangul.js';
 import { store } from './store.js';
 
@@ -11,7 +11,7 @@ export const RULES = {
   maxSameActivity: 2,
   masteredScore: 70,
   unitPassShare: 0.8,
-  confusionDrillAt: 3,
+  confusionDrillAt: 2,
   boxIntervalsMin: [0, 10, 60 * 24, 60 * 24 * 3, 60 * 24 * 7, 60 * 24 * 21]
 };
 
@@ -32,6 +32,8 @@ export async function loadProfile(kid) {
   for (const k of Object.keys(p.equipped)) if (p.equipped[k] === 'dino') p.equipped[k] = 'dinohat';
   // World 1 (word chapters) replaced the letter-grid planets
   if (!p.unlocked.includes('c1')) p.unlocked.unshift('c1');
+  // islands open strictly in order: anything she tapped ahead of time closes again
+  syncUnlocked(p);
   return p;
 }
 export function saveProfile(p) { return store.set(`profile:${p.kid}`, p); }
@@ -57,25 +59,41 @@ export function currentStage(p, unit = currentUnit(p)) {
   return unit.stages.find((st) => stageProgress(p, st).share < RULES.unitPassShare) || unit.stages[0];
 }
 
-export function currentUnit(p) {
-  for (const u of UNITS) {
-    if (!p.unlocked.includes(u.id)) break;
-    if (unitProgress(p, u).share < RULES.unitPassShare) return u;
-  }
-  // Everything unlocked is passed: the last unlocked one.
-  return UNITS.find((u) => u.id === p.unlocked[p.unlocked.length - 1]) || UNITS[0];
+// ---- order: islands (and the stories between them) open one at a time --------
+export function stopPassed(p, id) {
+  if (STORY_BY_ID[id]) return !!(p.stories && p.stories[id]);
+  const u = UNITS.find((x) => x.id === id);
+  return !!u && unitProgress(p, u).share >= RULES.unitPassShare;
+}
+// index in MAP_ORDER of the furthest stop she may open
+export function openIndex(p) {
+  for (let i = 0; i < MAP_ORDER.length; i++) if (!stopPassed(p, MAP_ORDER[i])) return i;
+  return MAP_ORDER.length - 1;
+}
+export function isOpen(p, id) { const i = MAP_ORDER.indexOf(id); return i >= 0 && i <= openIndex(p); }
+export function nextStop(p) { return MAP_ORDER[openIndex(p)]; }
+function syncUnlocked(p) {
+  const fresh = [];
+  const keep = UNITS.filter((u) => isOpen(p, u.id)).map((u) => u.id);
+  for (const id of keep) if (!p.unlocked.includes(id)) fresh.push(id);
+  p.unlocked = keep.length ? keep : ['c1'];
+  return fresh;
 }
 
-export function checkUnlocks(p) {
-  const fresh = [];
-  for (let i = 0; i < UNITS.length - 1; i++) {
-    const u = UNITS[i], next = UNITS[i + 1];
-    if (p.unlocked.includes(u.id) && !p.unlocked.includes(next.id) && unitProgress(p, u).share >= RULES.unitPassShare) {
-      p.unlocked.push(next.id);
-      fresh.push(next.id);
-    }
+export function currentUnit(p) {
+  const open = UNITS.filter((u) => isOpen(p, u.id));
+  return open.find((u) => unitProgress(p, u).share < RULES.unitPassShare) || open[open.length - 1] || UNITS[0];
+}
+
+export function checkUnlocks(p) { return syncUnlocked(p); }
+
+// stages inside an island go in order too (the review stage comes last)
+export function stageOpen(p, unit, stageId) {
+  for (const st of unit.stages) {
+    if (st.id === stageId) return true;
+    if (stageProgress(p, st).share < RULES.unitPassShare) return false;
   }
-  return fresh;
+  return false;
 }
 
 // ---- choosing activities --------------------------------------------------
@@ -86,7 +104,9 @@ function activitiesFor(item, score) {
     // later: the sound goes away and he has to read the word himself.
     if (score < 25) return ['pickpic', 'connect', 'memory', 'stars', 'pickpic'];
     if (score < 55) return ['pickpic', 'picture', 'stars', 'build', 'connect', 'sound', 'fill', 'memory'];
-    return ['read', 'picture', 'stars', 'fill', 'build', 'sound', 'balloon', 'connect'];
+    if (score < 80) return ['read', 'picture', 'stars', 'fill', 'build', 'sound', 'balloon', 'connect'];
+    // nearly mastered: mostly spelling and sounding out, so the score means real reading
+    return ['build', 'fill', 'sound', 'read', 'build', 'fill', 'sound', 'picture'];
   }
   if (item.kind === 'syl') {
     if (score < 25) return ['listen', 'stars', 'memory', 'build'];
@@ -187,8 +207,7 @@ const ALL_SYL = [...new Set(UNITS.flatMap((u) => u.items).flatMap((it) => [...it
 export function buildLesson(p, unitId, stageId) {
   const now = Date.now();
   const unit = unitId ? UNITS.find((u) => u.id === unitId) : currentUnit(p);
-  const stage = (stageId && STAGE_BY_ID[stageId]) || currentStage(p, unit);
-  if (!p.unlocked.includes(unit.id)) p.unlocked.push(unit.id);
+  const stage = (stageId && STAGE_BY_ID[stageId] && stageOpen(p, unit, stageId) && STAGE_BY_ID[stageId]) || currentStage(p, unit);
   const LEN = RULES.lessonLength;
   const plan = [];
   const used = new Map();

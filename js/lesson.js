@@ -9,7 +9,14 @@ import { compose, letterSound, syllableSimilarity, decompose } from './hangul.js
 import { m, makeStep, buildSpec, distractors, recordAnswer, markExposure, saveProfile, checkUnlocks, finishLessonDay } from './engine.js';
 import { store } from './store.js';
 import { traceActivity } from './trace.js';
-import { readActivity } from './read.js';
+import { readActivity, playBlob } from './read.js';
+
+// background/sleep time, so a lesson left open overnight doesn't log a 10-hour answer
+const hidden = { total: 0, at: null };
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) hidden.at = Date.now();
+  else if (hidden.at) { hidden.total += Date.now() - hidden.at; hidden.at = null; }
+});
 
 const PALETTE = [['#FFD86B', 'rgba(255,216,107,0.6)'], ['#5ED3C7', 'rgba(94,211,199,0.6)'], ['#FF9AC4', 'rgba(255,154,196,0.6)'], ['#9EC5FF', 'rgba(158,197,255,0.6)'], ['#C8F27A', 'rgba(200,242,122,0.6)']];
 
@@ -68,6 +75,7 @@ async function next() {
   if (L.index >= L.steps.length) return finish();
   const step = L.steps[L.index];
   const item = prepare(step);
+  step._hidden0 = hidden.total;
   await persist();
   const run = { intro: item.media ? meet : intro, listen: choose, sight: choose, picture: choose, sound: choose, pickpic, connect, build, trace: traceStep, read: readStep, stars, balloon, memory, fill }[step.activity] || choose;
   run(step, item);
@@ -75,6 +83,11 @@ async function next() {
 
 // Called by every activity when the step is over.
 async function done(step, item, { correct, ms, chosen = null, weight = 1, extra = {} }) {
+  // a fast double tap can end the same step twice: only the first counts
+  if (step._done) return;
+  step._done = true;
+  // time the tablet spent asleep or in the background doesn't count, and no answer takes over 2 minutes
+  if (typeof ms === 'number') ms = Math.max(0, Math.min(120000, ms - (hidden.total + (hidden.at ? Date.now() - hidden.at : 0) - (step._hidden0 || 0))));
   const p = app.profile;
   if (weight > 0) recordAnswer(p, item.id, { correct, ms, chosen, weight });
   await store.addEvent({ kid: 'tay', type: 'answer', lesson: L.id, unit: item.unit, item: item.id, activity: step.activity, correct, ms, chosen, weight, score: m(p, item.id).score, ...extra });
@@ -398,7 +411,15 @@ function readStep(step, item) {
   readActivity($(el, '.mic'), item, {
     onListening: () => say(pick('listening')),
     onResult: async (r) => {
-      const extra = { heard: r.heard, verdict: r.verdict, asr: r.asr };
+      const extra = { heard: r.heard, verdict: r.verdict, asr: r.asr, asrError: r.asrError };
+      if (r.verdict === 'echo') {
+        // her own voice first, then 망고 reads it: a gentle "check yourself"
+        if (r.blob) { await say(pick('hear_self')); await playBlob(r.blob); }
+        await say(pick('read_try'), item.text);
+        sfx('ok'); burst($(el, '.board'));
+        done(step, item, { correct: true, weight: 0, extra });
+        return true;
+      }
       if (r.verdict === 'good') {
         sfx('ok'); burst($(el, '.board'));
         await say(pick('read_good'), item.text);

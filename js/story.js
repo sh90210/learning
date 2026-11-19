@@ -3,7 +3,7 @@ import { app, html, mount, on, $, $$, esc, talk, burst, coinPill } from './ui.js
 import { say, sfx, stop } from './audio.js';
 import { pick } from './lines.js';
 import { STORY_BY_ID, picUrl } from './curriculum.js';
-import { loadProfile, saveProfile } from './engine.js';
+import { loadProfile, saveProfile, isOpen } from './engine.js';
 import { ICON } from './art.js';
 
 const STORY_COINS = 30;
@@ -12,6 +12,7 @@ const clean = (t) => t.replace(/[.!?,]/g, '');
 export async function storyScreen(id) {
   const story = STORY_BY_ID[id];
   const p = app.profile = await loadProfile('tay');
+  if (!isOpen(p, id)) return app.go('map');
   let page = 0;
   const heard = new Set(); // pages whose words he tapped at least once
 

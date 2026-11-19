@@ -6,7 +6,7 @@ import { UNITS, STAGE_BY_ID, COMING, picUrl, MAP_ORDER, STORY_BY_ID } from './cu
 import { storyScreen } from './story.js';
 import { faceFrame, getPhoto } from './faces.js';
 import { theoHome } from './placement.js';
-import { loadProfile, saveProfile, currentUnit, currentStage, unitProgress, stageProgress, buildLesson } from './engine.js';
+import { loadProfile, saveProfile, currentUnit, currentStage, unitProgress, stageProgress, buildLesson, openIndex, isOpen, nextStop, stageOpen } from './engine.js';
 import { store } from './store.js';
 import { runLesson } from './lesson.js';
 import { grownups } from './grownups.js';
@@ -91,16 +91,17 @@ screens.map = async ({ greet = false } = {}) => {
   let path = '';
   for (let i = 1; i < nStops; i++) path += `<line x1="${POS[i - 1][0]}" y1="${POS[i - 1][1]}" x2="${POS[i][0]}" y2="${POS[i][1]}" stroke="rgba(255,255,255,0.45)" stroke-width="6" stroke-dasharray="4 16" stroke-linecap="round"/>`;
   // the map grows with him: stops more than one past where he is are still in the clouds
-  const curIdx = MAP_ORDER.indexOf(cur.id);
-  const reach = Math.max(curIdx + 1, ...MAP_ORDER.map((id, i) => (STORY_BY_ID[id] ? (p.stories && p.stories[id] ? i + 1 : -1) : unitProgress(p, UNITS.find((u) => u.id === id)).share > 0 ? i + 1 : -1)));
+  // islands open one by one, in order; the ones ahead wait under a cloud with a lock
+  const reach = openIndex(p);
+  const nextId = MAP_ORDER[reach];
   const stops = POS.slice(0, nStops).map(([x, y], i) => {
     const id = MAP_ORDER[i];
     if (!id) return `<div class="stop soon" style="left:${x}px;top:${y}px"><span class="badge">?</span></div>`;
-    const far = i > reach ? 'far' : '';
+    const far = i > reach ? 'far locked' : '';
     const st = STORY_BY_ID[id];
     if (st) {
       const done = p.stories && p.stories[id];
-      return `<button class="stop story-stop ${far}" data-story="${id}" style="left:${x}px;top:${y}px;--c:${st.color}" aria-label="${esc(st.name)}">
+      return `<button class="stop story-stop ${far} ${id === nextId ? 'current' : ''}" data-story="${id}" style="left:${x}px;top:${y}px;--c:${st.color}" aria-label="${esc(st.name)}">
         <span class="badge"><img class="wpic" src="${picUrl(st.pic)}" alt=""><span class="book">${ICON.book()}</span></span>
         <span class="name">${esc(st.name)}</span>
         <span class="stars">${done ? starRow(3) : ''}</span></button>`;
@@ -108,7 +109,7 @@ screens.map = async ({ greet = false } = {}) => {
     const u = UNITS.find((x2) => x2.id === id);
     const prog = unitProgress(p, u);
     return `<button class="stop ${u.id === cur.id ? 'current' : ''} ${far}" data-unit="${u.id}" style="left:${x}px;top:${y}px;--c:${u.color}" aria-label="${esc(u.name)}">
-      <span class="badge"><img class="wpic" src="${picUrl(u.pic)}" alt=""></span>
+      <span class="badge"><img class="wpic" src="${picUrl(u.pic)}" alt="">${far ? `<span class="lock">${ICON.lock ? ICON.lock() : '🔒'}</span>` : ''}</span>
       <span class="name">${esc(u.name)}</span>
       <span class="stars">${starRow(starsFor(prog.share))}</span>
     </button>`;
@@ -150,17 +151,23 @@ screens.map = async ({ greet = false } = {}) => {
   on(el, '.back', () => app.go('entry'));
   on(el, '[data-go]', (b) => app.go(b.dataset.go));
   bindDance(el);
-  on(el, '.go', () => { sfx('pop'); runLesson(saved || buildLesson(p, cur.id)); });
-  on(el, '.stop[data-unit]', (b) => { sfx('pop'); app.go('planet', b.dataset.unit); });
+  on(el, '.go', () => {
+    sfx('pop');
+    if (!saved && STORY_BY_ID[nextId]) return app.go('story', nextId);
+    runLesson(saved || buildLesson(p, cur.id));
+  });
+  const locked = (b) => { sfx('bad'); b.classList.remove('shake'); void b.offsetWidth; b.classList.add('shake'); talk(speak, pick('island_locked')); };
+  on(el, '.stop[data-unit]', (b) => (b.classList.contains('locked') ? locked(b) : (sfx('pop'), app.go('planet', b.dataset.unit))));
   on(el, '.stop.soon', () => { sfx('bad'); });
-  on(el, '.stop[data-story]', (b) => { sfx('pop'); app.go('story', b.dataset.story); });
+  on(el, '.stop[data-story]', (b) => (b.classList.contains('locked') ? locked(b) : (sfx('pop'), app.go('story', b.dataset.story))));
 };
 
 // ---- one planet: its short stages, all open, with arrows to the next/previous planet --
 screens.story = (id) => storyScreen(id);
 
 screens.planet = async (unitId) => {
-  const p = app.profile || (app.profile = await loadProfile('tay'));
+  const p = app.profile = await loadProfile('tay');
+  if (!isOpen(p, unitId)) return app.go('map');
   const i = UNITS.findIndex((u) => u.id === unitId);
   const u = UNITS[i];
   const rec = currentStage(p, u);
@@ -172,7 +179,8 @@ screens.planet = async (unitId) => {
     const y = k % 2 ? 330 : 200;
     const label = st.items.map((it) => it.text).join(' ');
     const thumbs = st.items.map((it) => (it.media ? `<img src="${picUrl(it.media)}" alt="">` : '')).join('');
-    return `<button class="stone ${st.id === rec.id ? 'current' : ''}" data-stage="${st.id}" style="left:${x}%;top:${y}px;--c:${u.color}" aria-label="${k + 1}단계">
+    const lockedSt = !stageOpen(p, u, st.id);
+    return `<button class="stone ${st.id === rec.id ? 'current' : ''} ${lockedSt ? 'locked' : ''}" data-stage="${st.id}" style="left:${x}%;top:${y}px;--c:${u.color}" aria-label="${k + 1}단계">
       <span class="num ${st.review ? 'review' : ''}">${st.review ? '모두' : k + 1}</span>
       ${thumbs ? `<span class="thumbs">${thumbs}</span>` : `<span class="peek">${esc(label)}</span>`}
       <span class="stars">${starRow(starsFor(pr.share))}</span></button>`;
@@ -188,7 +196,7 @@ screens.planet = async (unitId) => {
     <div class="row grow" style="gap:18px">
       <button class="round nav prev" ${i === 0 ? 'disabled' : ''} aria-label="이전 행성">${ICON.prev()}</button>
       <div class="stones grow">${stones}</div>
-      <button class="round nav next" ${i === UNITS.length - 1 ? 'disabled' : ''} aria-label="다음 행성">${ICON.next()}</button>
+      <button class="round nav next" ${i === UNITS.length - 1 || !isOpen(p, UNITS[i + 1].id) ? 'disabled' : ''} aria-label="다음 행성">${ICON.next()}</button>
     </div>
   </section>`));
   const speak = $(el, '.speak');
@@ -196,8 +204,9 @@ screens.planet = async (unitId) => {
   on(el, '.speak', () => talk(speak, pick(`ch_${u.id}`), pick('planet')));
   on(el, '.back', () => app.go('map'));
   on(el, '.prev', () => i > 0 && app.go('planet', UNITS[i - 1].id));
-  on(el, '.next', () => i < UNITS.length - 1 && app.go('planet', UNITS[i + 1].id));
+  on(el, '.next', () => i < UNITS.length - 1 && isOpen(p, UNITS[i + 1].id) && app.go('planet', UNITS[i + 1].id));
   on(el, '.stone', async (b) => {
+    if (b.classList.contains('locked')) { sfx('bad'); talk(speak, pick('stage_locked')); return; }
     sfx('pop');
     if (saved) await store.del('lesson:tay');
     runLesson(buildLesson(p, u.id, b.dataset.stage));

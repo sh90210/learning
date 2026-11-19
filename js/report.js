@@ -24,7 +24,7 @@ export function lessonMinutes(events) {
 export async function buildReport(kid = 'tay') {
   const p = await loadProfile(kid);
   const events = (await store.allEvents()).filter((e) => e.kid === kid);
-  const answers = events.filter((e) => e.type === 'answer' && e.activity !== 'intro');
+  const answers = events.filter((e) => e.type === 'answer' && e.activity !== 'intro' && !(e.activity === 'read' && e.weight === 0 && e.verdict !== 'echo'));
   const byActivity = {};
   for (const a of answers) {
     const s = byActivity[a.activity] || (byActivity[a.activity] = { tries: 0, correct: 0, avgMs: 0 });

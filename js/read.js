@@ -40,11 +40,14 @@ export function readActivity(btn, item, { onListening, onResult }) {
     btn.classList.add('on');
     onListening && onListening();
     await new Promise((r) => setTimeout(r, 900)); // let "듣고 있어" finish first
-    const [asr, blob] = await Promise.all([recognize(), record(4500)]);
+    const [asr, blob] = await Promise.all([recognize(), record(item.kind === 'sentence' ? 4500 : 3500)]);
     btn.classList.remove('on');
-    const r = asr.ok ? judge(item.text, asr.alts) : { verdict: 'none', heard: '' };
+    let r = asr.ok ? judge(item.text, asr.alts) : { verdict: 'none', heard: '' };
+    // no speech recognition on this tablet (or it heard nothing): play her voice back
+    // instead, then 망고 reads it. Nothing is marked wrong.
+    if (r.verdict === 'none') r = { verdict: 'echo', heard: '' };
     if (blob) store.addRecording({ kid: 'tay', item: item.id, text: item.text, heard: r.heard, verdict: r.verdict, blob }).catch(() => {});
-    const finished = await onResult({ ...r, tries, asr: asr.ok });
+    const finished = await onResult({ ...r, tries, asr: asr.ok, asrError: asr.error || null, blob });
     busy = false;
     if (finished) btn.disabled = true;
   });
@@ -52,20 +55,20 @@ export function readActivity(btn, item, { onListening, onResult }) {
 
 function recognize() {
   return new Promise((resolve) => {
-    if (!SR) return resolve({ ok: false, alts: [] });
+    if (!SR) return resolve({ ok: false, alts: [], error: 'unsupported' });
     const rec = new SR();
     rec.lang = 'ko-KR';
     rec.interimResults = false;
     rec.maxAlternatives = 5;
-    let alts = [], settled = false;
-    const finish = (ok) => { if (settled) return; settled = true; try { rec.stop(); } catch (e) { /* ignore */ } resolve({ ok, alts }); };
+    let alts = [], settled = false, error = null;
+    const finish = (ok) => { if (settled) return; settled = true; try { rec.stop(); } catch (e) { /* ignore */ } resolve({ ok, alts, error }); };
     rec.onresult = (e) => {
       for (const res of e.results) for (const a of res) alts.push(a.transcript);
       finish(true);
     };
-    rec.onerror = (e) => finish(e.error === 'no-speech');
+    rec.onerror = (e) => { error = e.error || 'error'; finish(e.error === 'no-speech'); };
     rec.onend = () => finish(true);
-    try { rec.start(); } catch (e) { finish(false); }
+    try { rec.start(); } catch (e) { error = 'start:' + (e.name || e.message); finish(false); }
     setTimeout(() => finish(alts.length > 0), 5000);
   });
 }
@@ -87,4 +90,17 @@ async function record(ms) {
   } catch (e) {
     return null;
   }
+}
+
+// play a recording back; resolves when it ends (or after a safety timeout)
+export function playBlob(blob) {
+  return new Promise((resolve) => {
+    if (!blob) return resolve();
+    const url = URL.createObjectURL(blob);
+    const a = new Audio(url);
+    const end = () => { URL.revokeObjectURL(url); resolve(); };
+    a.onended = end; a.onerror = end;
+    a.play().catch(end);
+    setTimeout(end, 6000);
+  });
 }
