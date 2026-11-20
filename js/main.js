@@ -12,7 +12,15 @@ import { runLesson } from './lesson.js';
 import { grownups } from './grownups.js';
 
 const screens = {};
-app.go = (name, arg) => screens[name](arg);
+export const APP_VERSION = 'v2.7.2';
+// when a newer version has taken over, reload at the next safe screen (never mid-lesson)
+let pendingReload = false;
+const SAFE = new Set(['splash', 'entry', 'map']);
+app.go = (name, arg) => {
+  if (pendingReload && SAFE.has(name)) { location.reload(); return; }
+  app.screen = name;
+  return screens[name](arg);
+};
 
 // ---- splash: one tap unlocks sound on the tablet ----------------------------
 screens.splash = () => {
@@ -20,6 +28,7 @@ screens.splash = () => {
     <h1 class="title" style="font-size:88px">태오랑 태이랑</h1>
     <button class="start" aria-label="시작">${mango({ size: 300 })}</button>
     <div class="big-btn">${ICON.star('#151B3D')} 눌러서 시작!</div>
+    <div class="ver">${APP_VERSION}</div>
   </section>`));
   const start = async () => { sfx('pop'); store.persist(); app.go('entry'); };
   on(el, '.start', start);
@@ -352,6 +361,17 @@ async function boot() {
   app.settings = await store.get('settings', { voice: 'playful' });
   setVoice(app.settings.voice);
   app.go('splash');
-  if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+  if ('serviceWorker' in navigator) {
+    const hadController = !!navigator.serviceWorker.controller;
+    navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then((reg) => {
+      // check for a new version whenever the app comes back to the front
+      document.addEventListener('visibilitychange', () => { if (!document.hidden) reg.update().catch(() => {}); });
+    }).catch(() => {});
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (!hadController) return; // first install: nothing old to replace
+      pendingReload = true;
+      if (SAFE.has(app.screen)) location.reload();
+    });
+  }
 }
 boot();

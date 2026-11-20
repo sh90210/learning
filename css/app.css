@@ -550,3 +550,5 @@ svg { display: block; }
 .tr-ans b { color: #FFD86B; font-weight: 400; }
 .tr-explain { font-family: 'Jua'; font-size: 26px; color: #B9C0E8; margin: 0; text-align: center; line-height: 1.4; }
 .tr-fbpic svg { max-height: 220px; max-width: 760px; }
+
+.splash .ver { position: absolute; right: 18px; bottom: 12px; font-size: 16px; opacity: 0.45; font-family: system-ui, sans-serif; }
